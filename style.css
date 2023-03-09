@@ -1,0 +1,36 @@
+h1, h2 {
+  font-family: Lato;
+}
+
+td {
+  text-align: center;
+}
+
+tr.spacer {
+  height: 0.5em;
+}
+
+.chart-div {
+  width: 600px;
+  border-style: solid;
+  border-color: teal;
+  border-width: 1px;
+  float: left;
+  margin: 1em;
+}
+
+.chart-header {
+  text-align: center;
+  font-size: larger;
+  font-weight: bolder;
+  border-bottom: dashed teal 1px;
+}
+
+div#d3box {
+  
+}
+
+div#d3box > svg {
+  height: 100%;
+  width: 100%;
+}
