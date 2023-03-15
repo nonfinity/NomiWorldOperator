@@ -1,16 +1,16 @@
 import './style.css';
-import * as graph from './graphs';
-
+import * as graph from './grapher';
+import { world as nwo } from './nwoTest02';
 import * as d3 from 'd3';
 
 
 /**
  * NOTES
  *  - is the d3 library really needed on THIS file?
- *  - build NWO.World in another file and only expose the parent object to this one
+ *  
  */
 
-
+console.log(nwo);
 
 /**
  * goState: true = play and false = pause
@@ -33,7 +33,11 @@ toggle_goState(goState)
 document.getElementById('btn-play').addEventListener('click', (e:Event) => { toggle_goState(true) })
 document.getElementById('btn-pause').addEventListener('click', (e:Event) => { toggle_goState(false) })
 
-
+// Initialize charts to show empty data
+let cfg = { height : 200, width: 200, margin: { top: 20, right: 30, bottom: 30, left: 40 } }
+graph.forceMapInitialize('graph-map', nwo, cfg);
+graph.lineChartInitialize('grpah-inv', nwo, cfg, 'inventory');
+graph.lineChartInitialize('grpah-price', nwo, cfg, 'price');
 
 
 
@@ -75,6 +79,27 @@ function toggle_goState(setState: boolean = !goState): void {
 }
 
 /**
+ * this is the local wrapper for NWO.World.tick() and includes 
+ * cosmetics associated with displaying the results.
+ */
+function local_tick(state: boolean = goState): void {
+  if(state) {
+    //  * 1. make a beep
+    beep();
+
+    //  * 2. NWO.World.tick()
+    nwo.tick();
+
+    //  * 3. Update presentation
+    //  *    - add/move shipments on graph
+    //  *    - refresh stats table
+    //  *    - update line charts
+    //  *    - update tick count in navbar
+    document.getElementById('tick-count').innerText = nwo.time.toString()
+  }
+}
+
+/**
  * beep produces a single toned beep sound
  */
 function beep(freq = 475, duration = 50, vol = 50): void {
@@ -88,22 +113,4 @@ function beep(freq = 475, duration = 50, vol = 50): void {
   gain.gain.value = vol * 0.01;
   oscillator.start(context.currentTime);
   oscillator.stop(context.currentTime + duration * 0.001);
-}
-
-/**
- * this is the local wrapper for NWO.World.tick() and includes 
- * cosmetics associated with displaying the results.
- */
-function local_tick(state: boolean = goState): void {
-  if(state) {
-    //  * 1. make a beep
-    beep();
-
-    //  * 2. NWO.World.tick()
-    //  * 3. Update presentation
-    //  *    - add/move shipments on graph
-    //  *    - refresh stats table
-    //  *    - update line charts
-    //  *    - update tick count in navbar
-  }
 }
