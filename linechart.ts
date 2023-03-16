@@ -13,6 +13,12 @@ interface configSet {
     bottom: number,
   }
 };
+interface scale {
+  domainMin: number,
+  domainMax: number,
+  rangeMin: number,
+  rangeMax: number,
+};
 
 export class lineChart {
   cfg: configSet;
@@ -28,13 +34,16 @@ export class lineChart {
   log;
   hubSet: string[] = [];
   data: chartData[];
+  dataGroup: d3.InternMap;
   recordName: string;
   colors = d3.scaleOrdinal(d3.schemeCategory10);
 
+  scaleInfo: { x: scale, y: scale };
   xScale: d3.node;
   yScale: d3.node;
   xAxis: d3.node;
   yAxis: d3.node;
+  
   line: d3.line;
   
 
@@ -46,13 +55,27 @@ export class lineChart {
     for(let i in world.hubs) {
       this.hubSet.push(world.hubs[i].name);
     }
+
+    this.scaleInfo = {
+      x: {
+        domainMin: 1,
+        domainMax: 2,
+        rangeMin:  this.cfg.margin.left,
+        rangeMax:  this.cfg.width - this.cfg.margin.right,
+      },
+      y: {
+        domainMin: 0,
+        domainMax: 1,
+        rangeMin:  this.cfg.height - this.cfg.margin.bottom,
+        rangeMax:  this.cfg.margin.top,
+      }
+    };
     
     this._world_update(world);
     this._data_prep();
 
 
-    this._make_svg();
-    this._render_chart();
+    this._initialize_svg();
 
     console.log(this);
   }
@@ -75,16 +98,24 @@ export class lineChart {
           .attr('y1', this.cfg.margin.top)
           .attr('y2', this.cfg.height - this.cfg.margin.bottom)
           .style("stroke-width", 0.2)
-          .style("stroke", "black"),
-        update => update,
+          .style("stroke", "black")
+          ,
+        update => update
+          .attr('x1', d => this.xScale(d))
+          .attr('x2', d => this.xScale(d))
+          .attr('y1', this.cfg.margin.top)
+          .attr('y2', this.cfg.height - this.cfg.margin.bottom)
+          ,
         exit => exit
           .call(item => item.remove() )
+          ,
         )
       ;
 
     this.svg.chartlines
       .selectAll('path')
       .data(this.data, d => d[this.recordName])
+      //.data(this.dataGroup, d => d.value)
       .join(
         enter => enter
           .append('path')
@@ -92,10 +123,14 @@ export class lineChart {
           .attr('d', this.line)
           .style('stroke', (d, i) => this.colors(d[i]))
           .style('stroke-width', 2)
-          .style('fill', 'transparent'),
-        update => update,
+          .style('fill', 'transparent')
+          ,
+        update => update
+          .attr('d', this.line)
+          ,
         exit => exit
           .call(item => item.remove() )
+          ,
         )
       ;
   }
@@ -104,14 +139,48 @@ export class lineChart {
     this.log = world.log;
     
     // format data based on this.log
-    this._process_log();
+    this.data = [];
+    for(let i in this.hubSet) {
+      //let k = this.log.ticks.filter( ({ hub_name }) => hub_name === this.hubSet[i])
+      //this.data.push(k)
+      let q = world.log.ticks.filter( ({ hub_name }) => hub_name === this.hubSet[i])
+      this.data.push(q)
+    }
+
+
+    // update scaleInfo
+    this._set_scales(world);
+    
+    // trying new way
+    let x = world.log.ticks.map(d => ({ 
+      time: d.time,
+      hub_name: d.hub_name, 
+      value: d[this.recordName]
+      }) );
+    this.dataGroup = d3.group(x, d => d.hub_name);
+
+    //console.log('----');
+    //console.log(this.dataGroup)
+    let k = d3.group(this.dataGroup, d => d.hub_name)
+    //console.log(k)
+
+    //let f = d3.map(k, d => d.value)
+    //console.log(f)
+
+    let q = Array.from(k, d => d['value'])
+    //console.log(q)
+    
   }
 
   private _data_prep() {
 
     // determine the scales based on this.data
-    this.xScale = this._calc_xScale();
-    this.yScale = this._calc_yScale();
+    this.xScale = d3.scaleLinear(
+      [this.scaleInfo.x.domainMin, this.scaleInfo.x.domainMax],
+      [this.scaleInfo.x.rangeMin,  this.scaleInfo.x.rangeMax] );
+    this.yScale = d3.scaleLinear(
+      [this.scaleInfo.y.domainMin, this.scaleInfo.y.domainMax],
+      [this.scaleInfo.y.rangeMin,  this.scaleInfo.y.rangeMax] );
 
 
 
@@ -127,12 +196,25 @@ export class lineChart {
       .curve(d3.curveLinear);
   }
 
-  private _render_chart(): void {
+  private _set_scales(world: nwo.World): void {
+    let xValues = world.log.ticks.map(d => d.time)
+    let xMin: number = 2
+    if (xValues.length > 0) {
+      //console.log('-- xValues --');
+      //console.log(xValues)
+      this.scaleInfo.x.domainMin = d3.min(xValues);
+      this.scaleInfo.x.domainMax = Math.max(xMin, d3.max(xValues));
+    }
 
-
+    let yValues = world.log.ticks.map(d => d[this.recordName])
+    let yExtra: number = 0.15;
+    if (yValues.length > 0) {
+      this.scaleInfo.y.domainMin = 0; //d3.min(yValues) * (1 - yExtra);
+      this.scaleInfo.y.domainMax = d3.max(yValues) * (1 + yExtra);
+    }
   }
 
-  private _make_svg(): void {
+  private _initialize_svg(): void {
     this.svg._root = this.parent
       .append("svg")
       .attr("viewBox", [0, 0, this.cfg.width, this.cfg.height])
@@ -164,44 +246,9 @@ export class lineChart {
 
   }
 
-  private _process_log(): void {
-    this.data = [];
-
-    for(let i in this.hubSet) {
-      let k = this.log.ticks.filter( ({ hub_name }) => hub_name === this.hubSet[i])
-      this.data.push(k)
-    }
-  }
-
-  private _calc_yScale(): d3.node {
-    // determine the scales
-    let values = this.log.ticks.map(d => d[this.recordName])
-    let yExtra: number = .15
-    
-    let domain = [0, 10];
-    if(values.length === 0)  {
-      domain = [ d3.min(values) * (1 - yExtra), d3.max(values) * (1 + yExtra) ];
-    }
-
-    let range = [this.cfg.height - this.cfg.margin.bottom, this.cfg.margin.top];
-
-    return d3.scaleLinear(domain, range)
-  }
-
-  private _calc_xScale(): d3.node {
-    // determine the scales
-    let domain_max: number = 2;
-    if (this.data.length > 0) {
-      if (this.data[0].length > 0) {
-        domain_max = Math.max(domain_max, this.data[0][this.data[0].length - 1].time);
-      }
-    }
-
-    let range = [this.cfg.margin.left, this.cfg.width - this.cfg.margin.right];
-
-
-    return d3.scaleLinear([1, domain_max], range);
-  }
+/**
+ *  TRASH BIN
+ */
 
   private _svg_xGridLines() {
     let temp = this.svg

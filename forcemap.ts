@@ -22,19 +22,25 @@ interface linkDef {
 export class forceMap {
   cfg: configSet;
   parent: d3.node;
-  svg: d3.node;
+  svg: { [key : string] : d3.node } = {
+    _root     : undefined,
+    hubs      : undefined,
+    links     : undefined,
+    shipments : undefined,
+  }
   
   nodes: any;
   links: linkDef[];
   simulation: d3.forceSimulation;
 
+  shipments: any;
+
   constructor(parent_id: string, cfg: configSet, world: nwo.World) {
     this.parent = d3.select(`#${parent_id}`);
-    this.svg = this._make_svg(this.parent, cfg);
     this.cfg = cfg
+    
 
-    this.nodes = this._format_node(world);
-    this.links = this._format_link(world);
+    this._world_update(world);
 
     this.simulation = d3.forceSimulation(this.nodes)
       .force("charge", d3.forceManyBody().strength(-500))
@@ -43,49 +49,117 @@ export class forceMap {
       .on('tick', d => this._forceTick() ) // context is lost during the tick call and must be passed to be accessed
       ;
 
-    this._render_chart();
+    
+    this._svg_initialize();
+    //this._svg_update();
+
+    console.log(this);
   }
 
-  private _render_chart(): void {
-    
-    // -----------------------
-    // MAKE THE CHARTING YAH
-    // -----------------------
-    
-    // add the links first so they're behind the hubs
-    this.svg
-      .append("g")
-      .attr("class", "links")
-      //add formatting
-      .attr("stroke", "black")
-      .selectAll("line")
-      .data(this.links)
-      .join("line")
-        .attr("stroke", "blue")
-        .attr("stroke-width", 2)
-      ;
+  update(world: nwo.World) {
+    this._world_update(world);
+  }
 
-    // add hubs
-    this.svg
-      .append("g")
-      .attr("class", "nodes")
-      // add formatting
+  private _world_update(world: nwo.World) {
+    this.nodes = this._format_node(world);
+    this.links = this._format_link(world);
+
+    //console.log('-- shipment test --')
+    //console.log(world['shipments'])
+    //console.log(Object.values(world['shipments']))
+    //console.log(Object.values(world['shipments']).map(d => d.id))
+
+    this.shipments = Object
+      .values(world['shipments'])
+      .map(d => ({
+        world_id: d.id,
+        current: d.current,
+        distance: d.distance,
+        source: d.origin.id,
+        target: d.ending.id,
+        })
+      );
+  }
+
+  private _svg_update(): void {
+    
+    // update hubs first
+    /*
+    this.svg.hubs
       .selectAll('circle')
       .data(this.nodes)
-      .join('circle')
-        .attr('r', 8)
-        .attr("fill", "yellow")
-        .attr("stroke", "black")
-        .call(this._drag(this.simulation))
+      .join(
+        enter => enter
+          .append('circle')
+          .attr('r', 8)
+          .attr("fill", "yellow")
+          .attr("stroke", "black")
+          .call(this._drag(this.simulation))
+        //  ,
+        //update => update
+        //  ,
+        //exit => exit
+        //  .call(item => item.remove() )
+        //  ,
+        )
       ;
+    */
+
+    // updaing the links
+    this.svg.links
+      .selectAll('line')
+      .data(this.links)
+      .join(
+        enter => enter
+          .append("line")
+          .attr("stroke", "blue")
+          .attr("stroke-width", 2)
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y)
+          ,
+        update => update
+          ,
+        exit => exit
+          .call(item => item.remove() )
+          ,
+        )
+      ;
+    
+    //
+    // update the shipments
+    this.svg.shipments
+      .selectAll('rect')
+      .data(this.shipments)
+      .join(
+        enter => enter
+          .append('rect')
+          .attr('class', 'shipment')
+          .attr('height', 4)
+          .attr('width', 4)
+          .attr('rx', 2)
+          .attr('ry', 2)
+          .attr('x', d => this.nodes[d.source].x)
+          .attr('y', d => this.nodes[d.source].y)
+          ,
+        update => update
+          ,
+        exit => exit
+          .call(item => item.remove() )
+          ,
+        )
+      ;
+
+      //this.simulation.alphaTarget(0.3).restart();
+
   }
 
   private _forceTick() {
     //console.log('ticked!');
     //console.log(this.parent);
     if (this.svg !== undefined) {
-      this.svg
-        .select('g.nodes')
+      this.svg.hubs
         .selectAll('circle')
         .data(this.nodes)
         .join('circle')
@@ -93,23 +167,45 @@ export class forceMap {
         .attr('cx', d => d.x)
         .attr('cy', d => d.y)
 
-      this.svg
-        .select('g.links')
+      this.svg.links
         .selectAll('line')
         .data(this.links)
         .join('line')
-        
         .attr('x1', d => d.source.x)
         .attr('y1', d => d.source.y)
         .attr('x2', d => d.target.x)
         .attr('y2', d => d.target.y)
 
+      
+      // this is where the shipments must be updated
+      // update the shipments
+      this.svg.shipments
+        .selectAll('rect')
+        .data(this.shipments)
+        .join(
+          enter => enter
+            .append('rect')
+            .attr('class', 'shipment')
+            .attr('height', 4)
+            .attr('width', 4)
+            .attr('rx', 2)
+            .attr('ry', 2)
+            .attr('x', d => this.nodes[d.source].x)
+            .attr('y', d => this.nodes[d.source].y)
+            ,
+          update => update
+            ,
+          exit => exit
+            .call(item => item.remove() )
+            ,
+          )
+        ;
+
       // add some fancy viewport manipulation here so the whole thing zooms fluidly
-    }
+    } // end of if
   }
 
   private _drag(simulation) {    
-    //console.log("dragging");
     function dragstarted(event) {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       event.subject.fx = event.subject.x;
@@ -133,37 +229,94 @@ export class forceMap {
       .on("end", dragended);
   }
 
-  private _make_svg(parent: d3.node, cfg: configSet): d3.node {
-    return parent
+  private _svg_initialize(): void {
+    this.svg._root =  this.parent
       .append("svg")
-      .attr("viewBox", [0, 0, cfg.width, cfg.height])
+      .attr("viewBox", [0, 0, this.cfg.width, this.cfg.height])
       //.attr("width", cfg.width) //"100%")
       //.attr("height", cfg.height) //"100%")
       //.on('click', d=>console.log("clicky clack")) // why wont this do anything?!?!?
       ;
+    
+    // prep links group (first so it's on botom)
+    this.svg.links = this.svg._root
+      .append("g")
+      .attr("class", "links")
+      ;
+    
+    this.svg.links
+      .selectAll('line')
+      .data(this.links)
+      .join(
+        enter => enter
+          .append("line")
+          .attr("stroke", "blue")
+          .attr("stroke-width", 2)
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y)
+        )
+      ;
+
+    // prep hubs group
+    this.svg.hubs = this.svg._root
+      .append("g")
+      .attr("class", "hubs")
+      ;
+    
+    this.svg.hubs
+      .selectAll('circle')
+      .data(this.nodes)
+      .join(
+        enter => enter
+          .append('circle')
+          .attr('r', 8)
+          .attr("fill", "yellow")
+          .attr("stroke", "black")
+          .call(this._drag(this.simulation))
+        )
+      ;
+    
+    this.svg.shipments = this.svg._root
+      .append("g")
+      .attr("class", "shipments")
+      ;
 }
 
-  private _format_node(data): any[] {
+  private _format_node(world: nwo.World): any[] {
+    /*
     let out = [];
     
-    let home = data['hubs']
+    let home = world['hubs']
     for(let i in home) {
       out.push({world_id: home[i].id, name: home[i].name})
     }
 
-    return out;
+    //console.log('-- format_node --')
+    //console.log(out)
+    //console.log(Object.values(world['hubs']).map(d => ({world_id: d.id, name: d.name})) )
+    //return out;
+    */
+    return Object.values(world['hubs']).map(d => ({world_id: d.id, name: d.name}));
   }
 
-  private _format_link(data): linkDef[] {
+  private _format_link(world: nwo.World): linkDef[] {
+    /*
     let out: linkDef[] = [];
 
-    let home = data['edges']
+    let home = world['edges']
     for(let i in home) {
       //console.log(home[i].pointA.id);
       let tmp: linkDef = { source: home[i].pointA.id, target: home[i].pointB.id };
       out.push(tmp);
     }
 
-    return out;
+    //console.log('-- format link --')
+    //console.log(out)
+    //console.log(Object.values(world['edges']).map(d => ({source: d.pointA.id, target: d.pointB.id})) )
+    //return out;
+    */
+    return Object.values(world['edges']).map(d => ({source: d.pointA.id, target: d.pointB.id}))
   }
 }

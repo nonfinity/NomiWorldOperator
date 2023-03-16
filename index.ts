@@ -21,7 +21,7 @@ let goState: boolean = false;
 /**
  * tick_interval = seconds between each tick
  */
-let tick_interval: number = 1.0;
+let tick_interval: number = 0.25;
 
 /**
  * interval_ptr is the pointer to our setInverval that does the ticking
@@ -37,7 +37,7 @@ document.getElementById('btn-pause').addEventListener('click', (e:Event) => { to
 // Initialize charts to show empty data
 let cfg = { height : 400, width: 400, margin: { top: 10, right: 10, bottom: 20, left: 20 } }
 
-let graph_TL: forceMap  =  new forceMap('graph-map-parent', cfg, world);
+let graph_UL: forceMap  =  new forceMap('graph-map-parent', cfg, world);
 let graph_BL: lineChart = new lineChart('graph-price-parent', cfg, world, 'price');
 let graph_BR: lineChart = new lineChart('graph-inv-parent', cfg, world, 'inventory');
 
@@ -96,7 +96,9 @@ function local_tick(state: boolean = goState): void {
     //  *    - add/move shipments on graph
     //  *    - refresh stats table
     //  *    - update line charts
+    graph_UL.update(world)
     graph_BL.update(world)
+    graph_BR.update(world)
     
     // focus on the getting the price graph done first
     //graph_BR.update(world)

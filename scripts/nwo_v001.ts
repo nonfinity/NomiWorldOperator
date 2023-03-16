@@ -634,7 +634,7 @@ export class Shipment {
    */
   current:      number = 0;
   /**
-   * The total number of ticks required to reach the destination
+   * The remaining number of ticks required to reach the destination
    */
   distance:     number;
   /**
