@@ -58,6 +58,33 @@ let graph_BR: lineChart = new lineChart('graph-inv-parent', cfg, world, 'invento
  * 
  * -------------------------------------- */ 
 
+/**
+ * format prices in currency
+ */
+const currency = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+
+  // These options are needed to round to whole numbers if that's what you want.
+  //minimumFractionDigits: 0, // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
+  //maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
+});
+
+/**
+ * beep produces a single toned beep sound
+ */
+function beep(freq = 475, duration = 50, vol = 50): void {
+  let context = new AudioContext()
+  let oscillator = context.createOscillator();
+  let gain = context.createGain();
+  oscillator.connect(gain);
+  oscillator.frequency.value = freq;
+  oscillator.type = "sine";
+  gain.connect(context.destination);
+  gain.gain.value = vol * 0.01;
+  oscillator.start(context.currentTime);
+  oscillator.stop(context.currentTime + duration * 0.001);
+}
 
 /**
  * Updates the status of whether the simulation is playing or paused
@@ -93,15 +120,15 @@ function local_tick(state: boolean = goState): void {
     world.tick();
 
     //  * 3. Update presentation
-    //  *    - add/move shipments on graph
-    //  *    - refresh stats table
-    //  *    - update line charts
+    //  *    - add/move shipments on force graph
     graph_UL.update(world)
+
+    //  *    - update line charts
     graph_BL.update(world)
     graph_BR.update(world)
-    
-    // focus on the getting the price graph done first
-    //graph_BR.update(world)
+
+    //  *    - refresh stats table
+    table_update();
 
     //  *    - update tick count in navbar
     document.getElementById('tick-count').innerText = world.time.toString()
@@ -109,17 +136,53 @@ function local_tick(state: boolean = goState): void {
 }
 
 /**
- * beep produces a single toned beep sound
+ * updates the display on the top right table
  */
-function beep(freq = 475, duration = 50, vol = 50): void {
-  let context = new AudioContext()
-  let oscillator = context.createOscillator();
-  let gain = context.createGain();
-  oscillator.connect(gain);
-  oscillator.frequency.value = freq;
-  oscillator.type = "sine";
-  gain.connect(context.destination);
-  gain.gain.value = vol * 0.01;
-  oscillator.start(context.currentTime);
-  oscillator.stop(context.currentTime + duration * 0.001);
+function table_init() {
+  // set it up to be variable to the number of hubs
+}
+
+//table_update();
+function table_update() {
+  let displayRows: number = 10
+
+  let home: HTMLDivElement = <HTMLDivElement> document.getElementById('grid-container');
+
+  let d: HTMLDivElement = document.createElement('div');
+    d.setAttribute('class', `grid-cell tick-${world.time}`);
+    d.setAttribute('style', 'grid-column: 1');
+    d.innerText = world.time.toString();
+    home.appendChild(d);
+    
+  for(let i in world.hubs) {
+    let h = world.hubs[i];
+
+    d = document.createElement('div');
+    d.setAttribute('class', `grid-cell tick-${world.time}`);
+    d.setAttribute('style', `grid-column: ${i * 2 + 2}`);
+    d.innerText = currency.format(h['sockets']['Food'].LIP());
+    home.appendChild(d);
+
+    d = document.createElement('div');
+    d.setAttribute('class', `grid-cell tick-${world.time}`);
+    d.setAttribute('style', `grid-column: ${2 * i + 3}`);
+    d.setAttribute('tick', world.time.toString());
+    d.innerText = h['sockets']['Food']['inventory'].toString()
+    home.appendChild(d);
+  }
+
+  let cut = home.querySelectorAll(`.tick-${world.time - displayRows}`)
+  console.log(`seeking: tick-${world.time - displayRows}`)
+  console.log(cut);
+  cut.forEach(d => d.parentNode.removeChild(d) );
+
+  /*
+  for(let i of home.children) {
+    if(i.getAttribute('tick') !== null) {
+      if(+i.getAttribute('tick') < (world.time - displayRows)) {
+        i.remove()
+      }
+    }
+  }
+  */
 }

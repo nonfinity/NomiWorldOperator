@@ -57,18 +57,7 @@ export class forceMap {
   }
 
   update(world: nwo.World) {
-    this._world_update(world);
-  }
-
-  private _world_update(world: nwo.World) {
-    this.nodes = this._format_node(world);
-    this.links = this._format_link(world);
-
-    //console.log('-- shipment test --')
-    //console.log(world['shipments'])
-    //console.log(Object.values(world['shipments']))
-    //console.log(Object.values(world['shipments']).map(d => d.id))
-
+    // update shipments underlier
     this.shipments = Object
       .values(world['shipments'])
       .map(d => ({
@@ -79,56 +68,8 @@ export class forceMap {
         target: d.ending.id,
         })
       );
-  }
-
-  private _svg_update(): void {
     
-    // update hubs first
-    /*
-    this.svg.hubs
-      .selectAll('circle')
-      .data(this.nodes)
-      .join(
-        enter => enter
-          .append('circle')
-          .attr('r', 8)
-          .attr("fill", "yellow")
-          .attr("stroke", "black")
-          .call(this._drag(this.simulation))
-        //  ,
-        //update => update
-        //  ,
-        //exit => exit
-        //  .call(item => item.remove() )
-        //  ,
-        )
-      ;
-    */
-
-    // updaing the links
-    this.svg.links
-      .selectAll('line')
-      .data(this.links)
-      .join(
-        enter => enter
-          .append("line")
-          .attr("stroke", "blue")
-          .attr("stroke-width", 2)
-          .attr('x1', d => d.source.x)
-          .attr('y1', d => d.source.y)
-          .attr('x2', d => d.target.x)
-          .attr('y2', d => d.target.y)
-          ,
-        update => update
-          ,
-        exit => exit
-          .call(item => item.remove() )
-          ,
-        )
-      ;
-    
-    //
-    // update the shipments
+    // update shipments SVG elements
     this.svg.shipments
       .selectAll('rect')
       .data(this.shipments)
@@ -136,70 +77,61 @@ export class forceMap {
         enter => enter
           .append('rect')
           .attr('class', 'shipment')
-          .attr('height', 4)
-          .attr('width', 4)
+          .attr('height', 5)
+          .attr('width', 5)
           .attr('rx', 2)
           .attr('ry', 2)
           .attr('x', d => this.nodes[d.source].x)
           .attr('y', d => this.nodes[d.source].y)
           ,
         update => update
+          .attr('x', d => d3.interpolateNumber(this.nodes[d.source].x, this.nodes[d.target].x)(d.current / d.distance) - 4)
+          .attr('y', d => d3.interpolateNumber(this.nodes[d.source].y, this.nodes[d.target].y)(d.current / d.distance) - 4)
           ,
         exit => exit
           .call(item => item.remove() )
           ,
         )
       ;
+  }
 
-      //this.simulation.alphaTarget(0.3).restart();
-
+  private _world_update(world: nwo.World) {
+    this.nodes = this._format_node(world);
+    this.links = this._format_link(world);
+    
+    this.shipments = Object
+      .values(world['shipments'])
+      .map(d => ({
+        world_id: d.id,
+        current: d.current,
+        distance: d.distance,
+        source: d.origin.id,
+        target: d.ending.id,
+        })
+      );
+    
   }
 
   private _forceTick() {
-    //console.log('ticked!');
-    //console.log(this.parent);
     if (this.svg !== undefined) {
       this.svg.hubs
         .selectAll('circle')
         .data(this.nodes)
         .join('circle')
-        //.attr('r', 3)
-        .attr('cx', d => d.x)
-        .attr('cy', d => d.y)
+          .attr('cx', d => d.x)
+          .attr('cy', d => d.y)
 
       this.svg.links
         .selectAll('line')
         .data(this.links)
         .join('line')
-        .attr('x1', d => d.source.x)
-        .attr('y1', d => d.source.y)
-        .attr('x2', d => d.target.x)
-        .attr('y2', d => d.target.y)
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y)
 
       
-      // this is where the shipments must be updated
-      // update the shipments
-      this.svg.shipments
-        .selectAll('rect')
-        .data(this.shipments)
-        .join(
-          enter => enter
-            .append('rect')
-            .attr('class', 'shipment')
-            .attr('height', 4)
-            .attr('width', 4)
-            .attr('rx', 2)
-            .attr('ry', 2)
-            .attr('x', d => this.nodes[d.source].x)
-            .attr('y', d => this.nodes[d.source].y)
-            ,
-          update => update
-            ,
-          exit => exit
-            .call(item => item.remove() )
-            ,
-          )
-        ;
+      // shipments are a whole different 'layer' and not involved in the force simulation
 
       // add some fancy viewport manipulation here so the whole thing zooms fluidly
     } // end of if
@@ -318,5 +250,79 @@ export class forceMap {
     //return out;
     */
     return Object.values(world['edges']).map(d => ({source: d.pointA.id, target: d.pointB.id}))
+  }
+
+  private _svg_update(): void {
+    
+    // update hubs first
+    /*
+    this.svg.hubs
+      .selectAll('circle')
+      .data(this.nodes)
+      .join(
+        enter => enter
+          .append('circle')
+          .attr('r', 8)
+          .attr("fill", "yellow")
+          .attr("stroke", "black")
+          .call(this._drag(this.simulation))
+        //  ,
+        //update => update
+        //  ,
+        //exit => exit
+        //  .call(item => item.remove() )
+        //  ,
+        )
+      ;
+    */
+
+    // updaing the links
+    this.svg.links
+      .selectAll('line')
+      .data(this.links)
+      .join(
+        enter => enter
+          .append("line")
+          .attr("stroke", "blue")
+          .attr("stroke-width", 2)
+          .attr('x1', d => d.source.x)
+          .attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x)
+          .attr('y2', d => d.target.y)
+          ,
+        update => update
+          ,
+        exit => exit
+          .call(item => item.remove() )
+          ,
+        )
+      ;
+    
+    //
+    // update the shipments
+    this.svg.shipments
+      .selectAll('rect')
+      .data(this.shipments)
+      .join(
+        enter => enter
+          .append('rect')
+          .attr('class', 'shipment')
+          .attr('height', 4)
+          .attr('width', 4)
+          .attr('rx', 2)
+          .attr('ry', 2)
+          .attr('x', d => this.nodes[d.source].x)
+          .attr('y', d => this.nodes[d.source].y)
+          ,
+        update => update
+          ,
+        exit => exit
+          .call(item => item.remove() )
+          ,
+        )
+      ;
+
+      //this.simulation.alphaTarget(0.3).restart();
+
   }
 }

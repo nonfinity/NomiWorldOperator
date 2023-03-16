@@ -109,3 +109,20 @@ svg {
   width: 100%;
   height: 100%;
 }
+
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  justify-content: center;
+  gap: 2px 5px;
+}
+
+.grid-container > .grid-header {
+  background-color: #a8a; 
+  color: #fff;
+  text-align: center;  
+}
+
+.grid-container > .grid-cell {
+  text-align: center;  
+}
