@@ -1,7 +1,8 @@
 import './style.css';
-import * as graph from './grapher';
-import { world as nwo } from './nwoTest02';
+import { world } from './nwoTest02';
 import * as d3 from 'd3';
+import { forceMap } from './forcemap';
+import { lineChart } from './linechart';
 
 
 /**
@@ -10,7 +11,7 @@ import * as d3 from 'd3';
  *  
  */
 
-console.log(nwo);
+console.log(world);
 
 /**
  * goState: true = play and false = pause
@@ -34,10 +35,11 @@ document.getElementById('btn-play').addEventListener('click', (e:Event) => { tog
 document.getElementById('btn-pause').addEventListener('click', (e:Event) => { toggle_goState(false) })
 
 // Initialize charts to show empty data
-let cfg = { height : 200, width: 200, margin: { top: 20, right: 30, bottom: 30, left: 40 } }
-graph.forceMapInitialize('graph-map', nwo, cfg);
-graph.lineChartInitialize('grpah-inv', nwo, cfg, 'inventory');
-graph.lineChartInitialize('grpah-price', nwo, cfg, 'price');
+let cfg = { height : 400, width: 400, margin: { top: 10, right: 10, bottom: 20, left: 20 } }
+
+let graph_TL: forceMap  =  new forceMap('graph-map-parent', cfg, world);
+let graph_BL: lineChart = new lineChart('graph-price-parent', cfg, world, 'price');
+let graph_BR: lineChart = new lineChart('graph-inv-parent', cfg, world, 'inventory');
 
 
 
@@ -88,14 +90,19 @@ function local_tick(state: boolean = goState): void {
     beep();
 
     //  * 2. NWO.World.tick()
-    nwo.tick();
+    world.tick();
 
     //  * 3. Update presentation
     //  *    - add/move shipments on graph
     //  *    - refresh stats table
     //  *    - update line charts
+    graph_BL.update(world)
+    
+    // focus on the getting the price graph done first
+    //graph_BR.update(world)
+
     //  *    - update tick count in navbar
-    document.getElementById('tick-count').innerText = nwo.time.toString()
+    document.getElementById('tick-count').innerText = world.time.toString()
   }
 }
 

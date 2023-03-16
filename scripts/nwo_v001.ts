@@ -10,7 +10,7 @@
 /**
  * define the Object type being logged
  */
-interface logRow {
+export interface logRow {
   time: number,
   hub_id: number,
   hub_name: string,
