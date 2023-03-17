@@ -36,6 +36,7 @@ export class lineChart {
   data: chartData[];
   dataGroup: d3.InternMap;
   recordName: string;
+  itemName: string;
   colors = d3.scaleOrdinal(d3.schemeCategory10);
 
   scaleInfo: { x: scale, y: scale };
@@ -47,7 +48,7 @@ export class lineChart {
   line: d3.line;
   
 
-  constructor(parent_id: string, cfg: configSet, world: nwo.World, recordName: string) {
+  constructor(parent_id: string, cfg: configSet, world: nwo.World, itemName: string, recordName: string) {
     this.parent = d3.select(`#${parent_id}`);
     this.cfg = cfg;
 

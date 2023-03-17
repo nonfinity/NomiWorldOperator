@@ -10,6 +10,20 @@
 /**
  * define the Object type being logged
  */
+export interface logSocket {
+  item_id: number,
+  item_name: string,
+  inventory: number,
+  invRatio: number,
+  price: number,
+};
+export interface logRow2 {
+  time: number,
+  hub_id: number,
+  hub_name: string,
+  sockets: logSocket[],
+}
+
 export interface logRow {
   time: number,
   hub_id: number,
@@ -361,8 +375,13 @@ export class ItemSocket {
    */
   baseQty:      number;
 
+  // plug values: come back and clean them up:
+  maxInvMult: number = 2.5;     // maximum inventory level as a multiple of baseQty
+  canExport(): boolean { return this.invRatio() > 0.2 }
+  canImport(): boolean { return this.invRatio() < 2.0 }
+
   constructor(parentHub: Hub , item: Item, production: number, consumption: number, 
-              inventory: number = 2 * consumption, baseQty: number = 2 * consumption ) {
+              inventory: number = 2 * (production + consumption), baseQty: number = 2 * (production + consumption) ) {
     this.parentHub = parentHub;
     this.item = item;
 
@@ -429,7 +448,7 @@ export class ItemSocket {
    */
   tick(): void {
     this.inventory += this.production - this.consumption;
-    this.inventory = Math.max(0, this.inventory);
+    this.inventory = Math.min( this.maxInvMult * this.baseQty , Math.max(0, this.inventory) );
   }
 
   /**

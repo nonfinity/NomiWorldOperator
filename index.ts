@@ -41,7 +41,7 @@ let graph_UL: forceMap  =  new forceMap('graph-map-parent', cfg, world);
 let graph_BL: lineChart = new lineChart('graph-price-parent', cfg, world, 'price');
 let graph_BR: lineChart = new lineChart('graph-inv-parent', cfg, world, 'inventory');
 
-
+populate_item_lists()
 
 
 
@@ -128,7 +128,7 @@ function local_tick(state: boolean = goState): void {
     graph_BR.update(world)
 
     //  *    - refresh stats table
-    table_update();
+    //table_update();
 
     //  *    - update tick count in navbar
     document.getElementById('tick-count').innerText = world.time.toString()
@@ -138,11 +138,6 @@ function local_tick(state: boolean = goState): void {
 /**
  * updates the display on the top right table
  */
-function table_init() {
-  // set it up to be variable to the number of hubs
-}
-
-//table_update();
 function table_update() {
   let displayRows: number = 10
 
@@ -172,8 +167,8 @@ function table_update() {
   }
 
   let cut = home.querySelectorAll(`.tick-${world.time - displayRows}`)
-  console.log(`seeking: tick-${world.time - displayRows}`)
-  console.log(cut);
+  //console.log(`seeking: tick-${world.time - displayRows}`)
+  //console.log(cut);
   cut.forEach(d => d.parentNode.removeChild(d) );
 
   /*
@@ -185,4 +180,41 @@ function table_update() {
     }
   }
   */
+}
+
+/**
+ * populates the drop down lists with the set of items in the World
+ */
+function populate_item_lists() {
+  let places = document.getElementsByName('item-list');
+  //console.log(places);
+
+  let items = Object.values(world.items).map(d => ({ name: d.name, id: d.id }) )
+
+  for(let p of places) {
+    p.addEventListener("change", item_changed);
+
+    for (let i of items) {
+      let tmp: HTMLOptionElement = document.createElement('option')
+      tmp.setAttribute('value', i.name)
+      tmp.innerText = i.name
+      
+      p.appendChild(tmp);
+    }
+  }
+}
+
+/**
+ * eventhandler for when an item dropdown is changed
+ */
+function item_changed(event) {
+  console.log(this.getAttribute('id'))
+  
+  let graph_map: { [key : string] : lineChart }= {
+    'price-item' : graph_BL,
+    'inventory-item' : graph_BR,
+  }
+
+  graph_map[this.getAttribute('id')].recordName = this.innerText
+
 }
