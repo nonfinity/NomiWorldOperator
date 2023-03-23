@@ -5,6 +5,7 @@
  * Version notes:
  *  - This switches types over to the TypeScript Map construct
  *  - Promotes logging to a class rather than a growing / sprawling dict
+ *  - World now has a list of all ItemSockets (no longer need to iterate by hub) 
  *  
  *  
  * NOTE! Version is under current work and not finished
@@ -40,6 +41,56 @@ export interface logRow {
   invRatio: number,
   price: number,
 }
+/**
+ * Interface types used in the Log object
+ */
+  interface hubRecord {
+    id:     number,
+    name:   string,
+  };
+  interface edgeRecord {
+    id:         number,
+    pointA_id:  number,
+    pointB_id:  number,
+    distance:   number,
+    cost:       number,
+    shipSize:   number,
+  };
+  interface itemRecord {
+    id:           number,
+    name:         string,
+    minReserve:   number,
+    basePrice:    number,
+    swing:        number,
+    k_exp:        number,
+  };
+  interface socketRecord {
+    id:           number,
+    hub_id:       number,
+    item_id:      number,
+    inventory:    number,
+    production:   number,
+    consumption:  number,
+    baseQty:      number,
+  };
+  interface socketTickRecord {
+    id:           number,
+    hub_id:       number,
+    item_id:      number,
+    inventory:    number,
+    invRatio:     number,
+    LIP:          number,
+
+  };
+  interface shipmentTickRecord {
+    id:           number,
+    current:      number,
+    distance:     number,
+    origin_id:    number,
+    ending_id:    number,
+    item_id:      number,
+    quantity:     number,
+  };
 
 
 /**
@@ -261,6 +312,18 @@ export class Hub {
       this.sockets[i].tick()
     }
   }
+
+  /**
+   * return a log of this object
+   */
+  getRecord(): hubRecord {
+    let out: hubRecord = {
+      id: this.id,
+      name: this.name,
+    };
+
+    return out;
+  }
   
   /**
    * add a new ItemSocket to this Hub
@@ -268,6 +331,8 @@ export class Hub {
   addSocket(item:Item, production: number, consumption: number, inventory?: number, baseQty?: number): void {
     new ItemSocket(this, item, production, consumption, inventory, baseQty);
   }
+
+  
 }
 
 /**
@@ -350,6 +415,22 @@ export class Item {
         //console.log(`input = ${k_exp}. \n tmp = ${tmp} \n output = ${this.k_exp}`)
     }
   }
+
+  /**
+   * return a log of this object
+   */
+  getRecord(): itemRecord {
+    let out: itemRecord = {
+      id:           this.id,
+      name:         this.name,
+      minReserve:   this.minReserve,
+      basePrice:    this.basePrice,
+      swing:        this.swing,
+      k_exp:        this.k_exp,
+    };
+
+    return out;
+  }
 }
 
 /**
@@ -360,6 +441,10 @@ export class ItemSocket {
    * the Hub to which this ItemSocket belongs
    */
   parentHub:    Hub;
+  /** 
+   * World determined identifier
+   */
+  id:           number;
   /**
    * the Item which this ItemSocket is for
    */
@@ -455,6 +540,39 @@ export class ItemSocket {
   tick(): void {
     this.inventory += this.production - this.consumption;
     this.inventory = Math.min( this.maxInvMult * this.baseQty , Math.max(0, this.inventory) );
+  }
+
+  /**
+   * return a log of this object
+   */
+  getRecord(): socketRecord {
+    let out: socketRecord = {
+      id:           this.id,
+      hub_id:       this.parentHub.id,
+      item_id:      this.item.id,
+      inventory:    this.inventory,
+      production:   this.production,
+      consumption:  this.consumption,
+      baseQty:      this.baseQty,
+    };
+
+    return out;
+  }
+
+  /**
+   * return a log of this object for Tick records
+   */
+  getTickRecord(): socketTickRecord {
+    let out: socketTickRecord = {
+      id:           this.id,
+      hub_id:       this.parentHub.id,
+      item_id:      this.item.id,
+      inventory:    this.inventory,
+      invRatio:     this.invRatio(),
+      LIP:          this.LIP(),
+    };
+
+    return out;
   }
 
   /**
@@ -643,6 +761,22 @@ export class Edge {
       }
     }
   }
+
+  /**
+   * return a log of this object
+   */
+  getRecord(): edgeRecord {
+    let out: edgeRecord = {
+      id:         this.id,
+      pointA_id:  this.pointA.id,
+      pointB_id:  this.pointB.id,
+      distance:   this.distance,
+      cost:       this.cost,
+      shipSize:   this.shipSize,
+    };
+
+    return out;
+  }
 }
 
 /**
@@ -728,4 +862,90 @@ export class Shipment {
     }
 
   }
+
+  /**
+   * return a log of this object for Tick records
+   */
+  getTickRecord(): shipmentTickRecord {
+    let out: shipmentTickRecord = {
+      id:           this.id,
+      current:      this.current,
+      distance:     this.distance,
+      origin_id:    this.origin.id,
+      ending_id:    this.ending.id,
+      item_id:      this.item.id,
+      quantity:     this.quantity,
+    };
+
+    return out;
+  }
+}
+
+/**
+ * Log class contains all the definitions for an rich logging object
+ */
+class Log {
+  parentWorld: World;
+
+  environment: {
+    hubs:         Map<number, hubRecord>,
+    edges:        Map<number, edgeRecord>
+    items:        Map<number, itemRecord>
+    itemSockets:  Map<number, socketRecord>
+  }
+
+  shipmentTicks:  Map<number, shipmentTickRecord[]>;
+  socketTicks:    Map<number, socketTickRecord[]>;
+
+  constructor(parent: World) {
+    this.parentWorld = parent;
+  }
+
+  logEnvironment(): void {
+    // pull info from parentWorld to register everything
+    let w: World = this.parentWorld
+    let names: string[] = ['hubs', 'edges', 'items']
+
+    for(let set in names) {
+      for(let i in w[set]) {
+        let id: number = w[set][i].id;
+        if(!this.environment[set].has(id)) {
+          this.environment[set].set(id, w[set][i].getRecord());
+        }
+
+        // if hubs, then do ItemSockets too
+        if(set === 'hubs') {
+          let sockets = w[set].sockets;
+          for(let s in sockets) {
+            this.environment.itemSockets.set(sockets[s].id, sockets[s].getRecord());
+          }
+        }
+      }
+    }
+  }
+
+  logTick(): void {
+    // pull info from parentWorld to register everything
+    let shipments : shipmentTickRecord[]  = [];
+    let sockets   : socketTickRecord[]    = [];
+    let tick: number = this.parentWorld.time;
+    let tmp;
+
+    // populate shipment record prep
+    tmp = this.parentWorld.shipments
+    for(let s in tmp) {
+      shipments.push(tmp[s].getTickRecord());
+    }
+
+    // populate socket record prep
+    tmp = this.parentWorld.hubs
+    for(let h in tmp) {
+      for(let s in tmp[h].sockets)
+      sockets.push(tmp[h].sockets[s].getTickRecord());
+    }
+
+    this.shipmentTicks.set(tick, shipments);
+    this.socketTicks.set(tick, sockets);
+  }
+
 }
