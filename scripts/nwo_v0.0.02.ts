@@ -17,6 +17,7 @@
 /**
  * define the Object type being logged
  */
+/*
 export interface logSocket {
   item_id: number,
   item_name: string,
@@ -41,6 +42,7 @@ export interface logRow {
   invRatio: number,
   price: number,
 }
+*/
 /**
  * Interface types used in the Log object
  */
@@ -87,7 +89,7 @@ export interface logRow {
     current:      number,
     distance:     number,
     origin_id:    number,
-    ending_id:    number,
+    target_id:    number,
     item_id:      number,
     quantity:     number,
   };
@@ -98,39 +100,32 @@ export interface logRow {
  */
 export class World {
   time:         number                        = 0;
-  hubs:         { [key: string]: Hub; }       = {};
-  edges:        { [key: string]: Edge; }      = {};
-  items:        { [key: string]: Item; }      = {};
-  shipments:    { [key: string]: Shipment; }  = {};
+  // hubs:         { [key: string]: Hub; }       = {};
+  // edges:        { [key: string]: Edge; }      = {};
+  // items:        { [key: string]: Item; }      = {};
+  // shipments:    { [key: string]: Shipment; }  = {};
+  
+  hubs:         Map<number, Hub>        = new Map<number, Hub>();
+  edges:        Map<number, Edge>       = new Map<number, Edge>();
+  items:        Map<number, Item>       = new Map<number, Item>();
+  shipments:    Map<number, Shipment>   = new Map<number, Shipment>();
+  sockets:      Map<number, ItemSocket> = new Map<number, ItemSocket>();
 
-  keys = {
-    hubs: 0,
-    edges: 0,
-    items: 0,
-    shipments: 0,
-  };
 
   // logging setup
-  logEnable: boolean = true;
-  log = {
-    environment: {
-      hubs: {},
-      edges: {},
-      items: {},      
-    },
-    ticks: [],
-    shipments: [],
-  };
+  log = new Log(this);
 
   /**
    * adds a new Hub to the World
    */
   addHub(name: string): Hub {
-    let x = new Hub(this, this.keys.hubs, name);
-    this.keys.hubs += 1;
+    let id: number = this.hubs.size + 1
+    let x = new Hub(this, id, name);
 
-    // add new hub logging
-    this._register_Hub(x);
+    this.hubs.set(id, x);
+    
+    // log the hub
+    this.log.logHub(value);
     return x;
   }
   
@@ -138,75 +133,54 @@ export class World {
    * adds a new Edge between two Hubs
    */
   addEdge(pointA: Hub, pointB: Hub, distance: number, cost: number, shipSize: number): Edge {
-    let x = new Edge(this.keys.edges, pointA, pointB, distance, cost, shipSize);
-    this.keys.edges += 1;
+    let id: number = this.edges.size + 1
+    let x = new Edge(id, pointA, pointB, distance, cost, shipSize);
     
-    // add new edge logging
-    this._register_Edge(x);
+    this.edges.set(id, x);
+    
+    // register with Hubs also
+    x.pointA.edges.set(id, x);
+    x.pointB.edges.set(id, x);
+
+    // log this edge
+    this.log.logEdge(value);
     return x;
   }
 
   addItem(name: string, minReserve: number, basePrice: number, swing: number, k_exp: number = 1): Item {
-    let x: Item = new Item(this, this.keys.items, name, minReserve, basePrice, swing, k_exp);
-    this.keys.items += 1;
-
-    // add new edge logging
-    this._register_Item(x);
-    return x;
-  }
-
-  addShipment(origin: Hub, ending: Hub, item: Item, distance: number, quantity: number): Shipment {
-    let x: Shipment = new Shipment(this.keys.shipments, origin, ending, item, distance, quantity);
-    this.keys.shipments += 1;
-
-    this._register_Shipment(x);
-    return x;
-  }
-
-  
-  _register_Hub(hub: Hub): void {
-    this.hubs[hub.id] = hub;
-
-    this.log.environment.hubs[hub.id] = {
-      id: hub.id,
-      name: hub.name,
-    }
-  }
-  _register_Item(item: Item): void {
-    this.items[item.id] = item;
-
-    this.log.environment.items[item.id] = {
-      id:           item.id,
-      name:         item.name,
-      basePrice:    item.basePrice,
-      minReserve:   item.minReserve,
-      swing :       item.swing,
-      k_exp:        item.k_exp,
-    }
-  }
-  _register_Edge(edge: Edge): void {
-    this.edges[edge.id] = edge;
+    let id: number = this.items.size + 1
+    let x: Item = new Item(this, id, name, minReserve, basePrice, swing, k_exp);
     
-    // register with Hubs also
-    edge.pointA.edges.push(edge);
-    edge.pointB.edges.push(edge);
+    this.items.set(id, x);
 
-    this.log.environment.edges[edge.id] = {
-      id: edge.id,
-      pointA: { id: edge.pointA.id, name: edge.pointA.name },
-      pointB: { id: edge.pointB.id, name: edge.pointB.name },
-      cost: edge.cost,
-      distance: edge.distance,
-      shipSize: edge.shipSize,
-    }
+    // log this item
+    this.log.logItem(x)
+    return x;
   }
-  _register_Shipment(shipment: Shipment): void {
-    this.shipments[shipment.id] = shipment;
 
-    // register at ending Hub?
+  addShipment(origin: Hub, target: Hub, item: Item, distance: number, quantity: number): Shipment {
+    let id: number = this.shipments.size + 1
+    let x: Shipment = new Shipment(id, origin, target, item, distance, quantity);
 
-    // currently not logging shipments to World.log
+    this.shipments.set(id, x);
+
+    // log this Shipment
+    this.log.logShipment(value);
+    return x;
   }
+
+  getSocketsfromHub() {
+    do this function
+  }
+
+  getSocketsfromItem() {
+    do this function
+  }
+
+  getSocketbyHubItem() {
+    do this function
+  }
+
 
   /**
    * a tick is a single unit of time in the primary simulation loop
@@ -215,55 +189,27 @@ export class World {
     this.time += 1;
 
     // perform production and consumption
-    for(let i in this.hubs) {
-      this.hubs[i].tick();
+    for(let [key, value] of this.hubs) {
+      value.tick();
     }
 
     // process shipments in transit
-    for(let i in this.shipments) {
-      this.shipments[i].tick();
+    for(let [key, value] of this.shipments) {
+      value.tick();
       
       // filter out delivered shipments
-      //this.shipments = this.shipments.filter(each => !each.isDelivered);
-      if (this.shipments[i].isDelivered) {
-        delete this.shipments[i];
+      if (value.isDelivered) {
+        this.shipments.delete(key);
       }
     }
 
     // launch shipments if needed
-    for(let i in this.edges) {
-      this.edges[i].tick();
+    for(let [key, value] of this.edges) {
+      value.tick();
     }
 
-    this.logging();
-    //console.log(this);
+    this.log.logTick();
   }
-
-  logging(): void {
-    if (this.logEnable) {
-      
-      // log hub & socket info
-      for (let i in this.hubs) {
-        for (let j in this.hubs[i].sockets) {
-          let h = this.hubs[i]
-          let tmp: logRow = {
-            time: this.time,
-            hub_id: h.id,
-            hub_name: h.name,
-            item_id: h.sockets[j].item.id,
-            item_name: h.sockets[j].item.name,
-            inventory: h.sockets[j].inventory,
-            invRatio: h.sockets[j].invRatio(),
-            price: h.sockets[j].LIP(),
-          }
-
-          this.log.ticks.push(tmp);
-        }
-      }
-      // log shipment info
-    }
-  }
-
 
 }
 
@@ -286,15 +232,13 @@ export class Hub {
   /**
    * the dictionary of ItemSockets at this Hub. Come back and figure out the correct type
    */
-  sockets:       { [key: string]: ItemSocket; } = {};
+  // sockets:       { [key: string]: ItemSocket; } = {};
+  sockets:      Map<number, ItemSocket> = new Map<number, ItemSocket>();
   /**
    * the array of Edges connected to this Hub
    */
-  edges:        Edge[] = [];
-  /**
-   * the array of shipments ending at this Hub
-   */
-  shipments:    Shipment[] = [];
+  // edges:        Edge[] = [];
+  edges:        Map<number, Edge> = new Map<number, Edge>();
 
   constructor(world:World, id: number, name: string) {
     this.parentWorld = world;
@@ -306,10 +250,12 @@ export class Hub {
    * The main doer fuction
    */
   tick(): void {
-    
+    // no work currently done on the hub itself
+
+
     // tick the sockets to update inventories
-    for(let i in this.sockets) {
-      this.sockets[i].tick()
+    for(let [key, value] of this.sockets) {
+      value.tick()
     }
   }
 
@@ -329,7 +275,35 @@ export class Hub {
    * add a new ItemSocket to this Hub
    */
   addSocket(item:Item, production: number, consumption: number, inventory?: number, baseQty?: number): void {
-    new ItemSocket(this, item, production, consumption, inventory, baseQty);
+    let id: number = this.parentWorld.sockets.size + 1
+    let x = new ItemSocket(this, id, item, production, consumption, inventory, baseQty);
+  
+    this.sockets.set(id, x);
+    this.parentWorld.sockets.set(id ,x);
+  }
+
+  getSocketbyItemName(which: string): ItemSocket {
+    let out: ItemSocket;
+
+    for(let [key, value] of this.sockets) {
+      if(value.item.name === which) {
+        out = value;
+      }
+    }
+
+    return out;
+  }
+
+  getSocketbyItemID(which: number): ItemSocket {
+    let out: ItemSocket;
+
+    for(let [key, value] of this.sockets) {
+      if(value.item.id === which) {
+        out = value;
+      }
+    }
+
+    return out;
   }
 
   
@@ -471,10 +445,11 @@ export class ItemSocket {
   canExport(): boolean { return this.invRatio() > 0.2 }
   canImport(): boolean { return this.invRatio() < 2.0 }
 
-  constructor(parentHub: Hub , item: Item, production: number, consumption: number, 
+  constructor(parentHub: Hub, id: number, item: Item, production: number, consumption: number, 
               inventory: number = 2 * (production + consumption), baseQty: number = 2 * (production + consumption) ) {
     this.parentHub = parentHub;
     this.item = item;
+    this.id = id;
 
     let errBase: string = `Error: Cannot create socket for Item ${item.name} on Hub ${parentHub.name}!`;
     let errCause: string = ``;
@@ -538,6 +513,8 @@ export class ItemSocket {
    * the main doer function
    */
   tick(): void {
+    // clean this up so it's not a hard min/max on the inventory
+    
     this.inventory += this.production - this.consumption;
     this.inventory = Math.min( this.maxInvMult * this.baseQty , Math.max(0, this.inventory) );
   }
@@ -592,7 +569,7 @@ export class ItemSocket {
     // y = -sb(x-1)^k + b
     // apparently Javascript chokes on exponentiation when the base is negative and the exponent is not an integer
     // therefore we're going to do some fancy footwork
-    let r: number = this.invRatio()
+    let r: number = this.invRatio();
     if(r-1 >= 0) {
       out = -1 * this.item.swing * this.item.basePrice * Math.pow(r - 1, this.item.k_exp) + this.item.basePrice;
     } else {
@@ -803,7 +780,7 @@ export class Shipment {
   /**
    * The Hub at which this Shipment will end it's journey
    */
-  ending :      Hub;
+  target :      Hub;
   /**
    * The Item carried in this Shipment
    */
@@ -817,9 +794,9 @@ export class Shipment {
    */
   isDelivered:  boolean = false;
 
-  constructor(id: number, origin: Hub, ending: Hub, item: Item, distance: number, quantity: number) {
+  constructor(id: number, origin: Hub, target: Hub, item: Item, distance: number, quantity: number) {
     this.origin = origin;
-    this.ending = ending;
+    this.target = target;
     this.item = item;
     this.id = id;
 
@@ -855,7 +832,7 @@ export class Shipment {
 
     // if at destination, offload goods
     if( this.current == this.distance) {
-      this.ending.sockets[this.item.name].inventory += this.quantity
+      this.target.getSocketbyItemID(this.item.id).inventory += this.quantity
       this.quantity = 0;
 
       this.isDelivered = true;
@@ -872,7 +849,7 @@ export class Shipment {
       current:      this.current,
       distance:     this.distance,
       origin_id:    this.origin.id,
-      ending_id:    this.ending.id,
+      target_id:    this.target.id,
       item_id:      this.item.id,
       quantity:     this.quantity,
     };
@@ -929,19 +906,16 @@ class Log {
     let shipments : shipmentTickRecord[]  = [];
     let sockets   : socketTickRecord[]    = [];
     let tick: number = this.parentWorld.time;
-    let tmp;
 
     // populate shipment record prep
-    tmp = this.parentWorld.shipments
-    for(let s in tmp) {
-      shipments.push(tmp[s].getTickRecord());
+    for(let [key, value] of this.parentWorld.shipments) {
+      shipments.push(value.getTickRecord());
     }
 
     // populate socket record prep
-    tmp = this.parentWorld.hubs
-    for(let h in tmp) {
-      for(let s in tmp[h].sockets)
-      sockets.push(tmp[h].sockets[s].getTickRecord());
+    for(let [key, value] of this.parentWorld.hubs) {
+      for(let s in value.sockets)
+      sockets.push(value.sockets[s].getTickRecord());
     }
 
     this.shipmentTicks.set(tick, shipments);
