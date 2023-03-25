@@ -15,35 +15,6 @@
 
 
 /**
- * define the Object type being logged
- */
-/*
-export interface logSocket {
-  item_id: number,
-  item_name: string,
-  inventory: number,
-  invRatio: number,
-  price: number,
-};
-export interface logRow2 {
-  time: number,
-  hub_id: number,
-  hub_name: string,
-  sockets: logSocket[],
-}
-
-export interface logRow {
-  time: number,
-  hub_id: number,
-  hub_name: string,
-  item_id: number,
-  item_name: string,
-  inventory: number,
-  invRatio: number,
-  price: number,
-}
-*/
-/**
  * Interface types used in the Log object
  */
   interface hubRecord {
@@ -75,7 +46,17 @@ export interface logRow {
     consumption:  number,
     baseQty:      number,
   };
-  interface socketTickRecord {
+  interface shipmentRecord {
+    id:           number,
+    depart_time:  number,
+    distance:     number,
+    origin_id:    number,
+    target_id:    number,
+    item_id:      number,
+    quantity:     number,
+  };
+  export interface socketTickRecord {
+    time:         number,
     id:           number,
     hub_id:       number,
     item_id:      number,
@@ -100,10 +81,6 @@ export interface logRow {
  */
 export class World {
   time:         number                        = 0;
-  // hubs:         { [key: string]: Hub; }       = {};
-  // edges:        { [key: string]: Edge; }      = {};
-  // items:        { [key: string]: Item; }      = {};
-  // shipments:    { [key: string]: Shipment; }  = {};
   
   hubs:         Map<number, Hub>        = new Map<number, Hub>();
   edges:        Map<number, Edge>       = new Map<number, Edge>();
@@ -125,7 +102,7 @@ export class World {
     this.hubs.set(id, x);
     
     // log the hub
-    this.log.logHub(value);
+    this.log.logHub(x);
     return x;
   }
   
@@ -143,7 +120,7 @@ export class World {
     x.pointB.edges.set(id, x);
 
     // log this edge
-    this.log.logEdge(value);
+    this.log.logEdge(x);
     return x;
   }
 
@@ -165,20 +142,77 @@ export class World {
     this.shipments.set(id, x);
 
     // log this Shipment
-    this.log.logShipment(value);
+    this.log.logShipment(x);
     return x;
   }
 
-  getSocketsfromHub() {
-    do this function
+  getHubbyID(which: number): Hub {
+    return this.hubs.get(which);
   }
 
-  getSocketsfromItem() {
-    do this function
+  getHubbyName(which: string): Hub {
+    let out: Hub
+
+    for(let [key, value] of this.hubs) {
+      if(value.name == which) {
+        out = value
+      }
+    }
+
+    return out;
   }
 
-  getSocketbyHubItem() {
-    do this function
+  getItembyID(which: number): Item {
+    return this.items.get(which);
+  }
+
+  getItembyName(which: string): Item {
+    let out: Item
+
+    for(let [key, value] of this.items) {
+      if(value.name == which) {
+        out = value
+      }
+    }
+
+    return out;
+  }
+
+  getSocketsfromHub(which: Hub): Map<number, ItemSocket> {
+    let out: Map<number, ItemSocket>
+    out = this.hubs.get(which.id).sockets
+
+    return out;
+  }
+
+  getSocketsfromItem(which: Item): Map<number, ItemSocket> {
+    let out: Map<number, ItemSocket>
+    out = this.items.get(which.id).sockets
+
+    return out;
+  }
+
+  getSocketbyHubItem(hub: Hub, item: Item): ItemSocket {
+    let out: ItemSocket
+
+    // check which is larger so we can iterate throug the smaller list
+    if(hub.sockets.size > item.sockets.size) {
+      // fewer sockets on the item than the hub
+      for(let [key, value] of item.sockets) {
+        if(value.parentHub.id === hub.id) {
+          out = value;
+        }
+      }
+    } else {
+      // same or fewer sockets on the hub than the item
+      for(let [key, value] of hub.sockets) {
+        if(value.item.id === item.id) {
+          out = value;
+        }
+      }
+    }
+
+    return out;
   }
 
 
@@ -280,6 +314,9 @@ export class Hub {
   
     this.sockets.set(id, x);
     this.parentWorld.sockets.set(id ,x);
+
+    // log this socket
+    this.parentWorld.log.logItemSocket(x);
   }
 
   getSocketbyItemName(which: string): ItemSocket {
@@ -343,6 +380,10 @@ export class Item {
    * Values will be rounded according to this formula 1/3 + multiples of 1/7.5
    */
   k_exp:          number;
+  /**
+   * a Map of sockets for this item
+   */
+  sockets:        Map<number, ItemSocket> = new Map<number, ItemSocket>(); 
 
   constructor(world: World, id: number, name: string, minReserve, basePrice: number, swing: number, k_exp: number = 1) {
     this.parentWorld = world;
@@ -504,9 +545,9 @@ export class ItemSocket {
         this.baseQty = baseQty;
     }
 
-    // on creation register yourself with your parent Hub
-    //parentHub.sockets.push(this);
-    parentHub.sockets[item.name] = this;
+    // on creation register yourself with your parent Hub and item
+    parentHub.sockets.set(id, this);
+    item.sockets.set(id, this);
   }
 
   /**
@@ -541,6 +582,7 @@ export class ItemSocket {
    */
   getTickRecord(): socketTickRecord {
     let out: socketTickRecord = {
+      time:         this.parentHub.parentWorld.time,
       id:           this.id,
       hub_id:       this.parentHub.id,
       item_id:      this.item.id,
@@ -840,6 +882,19 @@ export class Shipment {
 
   }
 
+  getRecord(): shipmentRecord {
+    let out: shipmentRecord = {
+      id:           this.id,
+      depart_time:  this.origin.parentWorld.time,
+      distance:     this.distance,
+      origin_id:    this.origin.id,
+      target_id:    this.target.id,
+      item_id:      this.item.id,
+      quantity:     this.quantity,
+    };
+
+    return out;
+  }
   /**
    * return a log of this object for Tick records
    */
@@ -865,17 +920,26 @@ class Log {
   parentWorld: World;
 
   environment: {
-    hubs:         Map<number, hubRecord>,
-    edges:        Map<number, edgeRecord>
-    items:        Map<number, itemRecord>
-    itemSockets:  Map<number, socketRecord>
+    [`hubs`]:         Map<number, hubRecord>,
+    [`edges`]:        Map<number, edgeRecord>,
+    [`items`]:        Map<number, itemRecord>,
+    [`itemSockets`]:  Map<number, socketRecord>,
+    [`shipments`]:    Map<number, shipmentRecord>,
+  } = {
+    hubs         : new Map<number, hubRecord>(),
+    edges        : new Map<number, edgeRecord>(),
+    items        : new Map<number, itemRecord>(),
+    itemSockets  : new Map<number, socketRecord>(),
+    shipments    : new Map<number, shipmentRecord>(),
   }
 
-  shipmentTicks:  Map<number, shipmentTickRecord[]>;
-  socketTicks:    Map<number, socketTickRecord[]>;
+  shipmentTicks:  Map<number, shipmentTickRecord[]> = new Map<number, shipmentTickRecord[]>();
+  socketTicks:    Map<number, socketTickRecord[]>   = new Map<number, socketTickRecord[]>();
 
   constructor(parent: World) {
     this.parentWorld = parent;
+
+    console.log(this);
   }
 
   logEnvironment(): void {
@@ -901,6 +965,12 @@ class Log {
     }
   }
 
+  logHub(which: Hub) {                this.environment.hubs.set(which.id, which.getRecord());         }
+  logItem(which: Item) {              this.environment.items.set(which.id, which.getRecord());        }
+  logEdge(which: Edge) {              this.environment.edges.set(which.id, which.getRecord());        }
+  logItemSocket(which: ItemSocket) {  this.environment.itemSockets.set(which.id, which.getRecord());  }
+  logShipment(which: Shipment) {      this.environment.shipments.set(which.id, which.getRecord());    }
+
   logTick(): void {
     // pull info from parentWorld to register everything
     let shipments : shipmentTickRecord[]  = [];
@@ -920,6 +990,10 @@ class Log {
 
     this.shipmentTicks.set(tick, shipments);
     this.socketTicks.set(tick, sockets);
+  }
+
+  getLastTick(): socketTickRecord[] {
+    return this.socketTicks.get(this.socketTicks.size);
   }
 
 }

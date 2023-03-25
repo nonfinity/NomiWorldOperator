@@ -1,7 +1,7 @@
 /**
  * This file is to build the NWO simulation and return a NWO.World object
  */
-import * as nwo from './scripts/nwo_v001';
+import * as nwo from './scripts/nwo_v0.0.02';
 
 export const world = new nwo.World;
   let i: nwo.Item = world.addItem("Food", 0.2, 20, 0.5, 1.0);
@@ -25,7 +25,7 @@ export const world = new nwo.World;
    * 
    *  TO DO ITEMS
    * 
-   *  a. don't build until called for
+   *  a. don't build until called for ... what does "build" mean?
    *  b. make ability to release world and rebuild it
    *  c. eventually be able to read in a world from a file definition
    * 

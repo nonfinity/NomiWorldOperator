@@ -1,8 +1,8 @@
-import * as nwo from './scripts/nwo_v001';
+import * as nwo from './scripts/nwo_v0.0.02';
 import * as d3 from 'd3';
 
 
-interface chartData {number: nwo.logRow[]};
+// interface chartData {number: nwo.logRow[]};
 interface configSet {
   height: number,
   width: number,
@@ -32,9 +32,9 @@ export class lineChart {
   }
 
   log;
-  hubSet: string[] = [];
-  data: chartData[];
-  dataGroup: d3.InternMap;
+  hubSet: number[] = [];
+  data: nwo.socketTickRecord[];
+  // dataGroup: d3.InternMap;
   recordName: string;
   itemName: string;
   colors = d3.scaleOrdinal(d3.schemeCategory10);
@@ -54,7 +54,7 @@ export class lineChart {
 
     this.recordName = recordName;
     for(let i in world.hubs) {
-      this.hubSet.push(world.hubs[i].name);
+      this.hubSet.push(world.hubs[i].id);
     }
 
     this.scaleInfo = {
@@ -140,37 +140,22 @@ export class lineChart {
     this.log = world.log;
     
     // format data based on this.log
-    this.data = [];
-    for(let i in this.hubSet) {
-      //let k = this.log.ticks.filter( ({ hub_name }) => hub_name === this.hubSet[i])
-      //this.data.push(k)
-      let q = world.log.ticks.filter( ({ hub_name }) => hub_name === this.hubSet[i])
-      this.data.push(q)
-    }
+    // trying to only append new ticks
+    // this.data = [];
+    // for(let i in this.hubSet) {
+    //   world.log.socketTicks.forEach( (value, key) => {
+    //     for(let rec of value) {
+    //       if(rec.hub_id === this.hubSet[i]) {
+    //         this.data.push(q);
+    //       }
+    //     }
+    //   })
+    //}
+    this.data.push(...world.log.getLastTick());
 
 
     // update scaleInfo
     this._set_scales(world);
-    
-    // trying new way
-    let x = world.log.ticks.map(d => ({ 
-      time: d.time,
-      hub_name: d.hub_name, 
-      value: d[this.recordName]
-      }) );
-    this.dataGroup = d3.group(x, d => d.hub_name);
-
-    //console.log('----');
-    //console.log(this.dataGroup)
-    let k = d3.group(this.dataGroup, d => d.hub_name)
-    //console.log(k)
-
-    //let f = d3.map(k, d => d.value)
-    //console.log(f)
-
-    let q = Array.from(k, d => d['value'])
-    //console.log(q)
-    
   }
 
   private _data_prep() {
@@ -198,7 +183,7 @@ export class lineChart {
   }
 
   private _set_scales(world: nwo.World): void {
-    let xValues = world.log.ticks.map(d => d.time)
+    let xValues = [ ...world.log.socketTicks.keys() ]
     let xMin: number = 2
     if (xValues.length > 0) {
       //console.log('-- xValues --');
@@ -207,7 +192,8 @@ export class lineChart {
       this.scaleInfo.x.domainMax = Math.max(xMin, d3.max(xValues));
     }
 
-    let yValues = world.log.ticks.map(d => d[this.recordName])
+    let yValues: number[] = []
+    world.log.socketTicks.forEach( (value, key) => { for(let i of value) { yValues.push(i.LIP) }} );
     let yExtra: number = 0.15;
     if (yValues.length > 0) {
       this.scaleInfo.y.domainMin = 0; //d3.min(yValues) * (1 - yExtra);

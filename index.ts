@@ -4,7 +4,6 @@ import * as d3 from 'd3';
 import { forceMap } from './forcemap';
 import { lineChart } from './linechart';
 
-
 /**
  * NOTES
  *  - is the d3 library really needed on THIS file?
