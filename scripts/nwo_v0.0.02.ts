@@ -59,7 +59,9 @@
     time:         number,
     id:           number,
     hub_id:       number,
+    hub_name:     string,
     item_id:      number,
+    item_name:    string,
     inventory:    number,
     invRatio:     number,
     LIP:          number,
@@ -585,7 +587,9 @@ export class ItemSocket {
       time:         this.parentHub.parentWorld.time,
       id:           this.id,
       hub_id:       this.parentHub.id,
+      hub_name:     this.parentHub.name,
       item_id:      this.item.id,
+      item_name:    this.item.name,
       inventory:    this.inventory,
       invRatio:     this.invRatio(),
       LIP:          this.LIP(),
@@ -983,9 +987,8 @@ class Log {
     }
 
     // populate socket record prep
-    for(let [key, value] of this.parentWorld.hubs) {
-      for(let s in value.sockets)
-      sockets.push(value.sockets[s].getTickRecord());
+    for(let [key, value] of this.parentWorld.sockets) {
+      sockets.push(value.getTickRecord());
     }
 
     this.shipmentTicks.set(tick, shipments);
@@ -993,6 +996,12 @@ class Log {
   }
 
   getLastTick(): socketTickRecord[] {
+    // console.log('-- getLastTick() --');
+    // console.log(this.socketTicks);
+    // console.log(`socket tick size = ${this.socketTicks.size}`)
+    // console.log(this.socketTicks.get(this.socketTicks.size));
+    // console.log(this.socketTicks.get(this.socketTicks.size - 1));
+    // console.log('-- ------------- --');
     return this.socketTicks.get(this.socketTicks.size);
   }
 

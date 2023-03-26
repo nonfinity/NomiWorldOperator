@@ -3,22 +3,23 @@ import * as d3 from 'd3';
 
 
 // interface chartData {number: nwo.logRow[]};
-interface configSet {
-  height: number,
-  width: number,
-  margin: {
-    left: number,
-    right: number,
-    top: number,
-    bottom: number,
-  }
-};
-interface scale {
-  domainMin: number,
-  domainMax: number,
-  rangeMin: number,
-  rangeMax: number,
-};
+  interface configSet {
+    height: number,
+    width: number,
+    margin: {
+      left: number,
+      right: number,
+      top: number,
+      bottom: number,
+    }
+  };
+  interface scale {
+    domainMin: number,
+    domainMax: number,
+    rangeMin: number,
+    rangeMax: number,
+  };
+// 
 
 export class lineChart {
   cfg: configSet;
@@ -31,10 +32,9 @@ export class lineChart {
     yAxis     : undefined,
   }
 
-  log;
   hubSet: number[] = [];
-  data: nwo.socketTickRecord[];
-  // dataGroup: d3.InternMap;
+  // data: nwo.socketTickRecord[] = [];
+  data; //: d3.InternMap; // = new d3.InternMap;
   recordName: string;
   itemName: string;
   colors = d3.scaleOrdinal(d3.schemeCategory10);
@@ -115,47 +115,54 @@ export class lineChart {
 
     this.svg.chartlines
       .selectAll('path')
-      .data(this.data, d => d[this.recordName])
-      //.data(this.dataGroup, d => d.value)
+      .data(this.data)
       .join(
         enter => enter
           .append('path')
           .attr('class', 'chartline')
-          .attr('d', this.line)
+          .attr('d', ([, d]) => this.line(d))
           .style('stroke', (d, i) => this.colors(d[i]))
           .style('stroke-width', 2)
           .style('fill', 'transparent')
           ,
         update => update
-          .attr('d', this.line)
+          .attr('d', ([, d]) => this.line(d))
           ,
         exit => exit
           .call(item => item.remove() )
           ,
         )
       ;
+    // console.log('--- end of update ---');
   }
 
   private _world_update(world: nwo.World) {
-    this.log = world.log;
-    
-    // format data based on this.log
-    // trying to only append new ticks
-    // this.data = [];
-    // for(let i in this.hubSet) {
-    //   world.log.socketTicks.forEach( (value, key) => {
-    //     for(let rec of value) {
-    //       if(rec.hub_id === this.hubSet[i]) {
-    //         this.data.push(q);
-    //       }
-    //     }
-    //   })
-    //}
-    this.data.push(...world.log.getLastTick());
+    let tmp = world.log.getLastTick();
 
+
+    // console.log('-- socketTicks --');
+    // console.log(world.log.socketTicks);
+    // console.log('-- ------------- --');
+    if(tmp !== undefined) {
+      let recHome: nwo.socketTickRecord[] = []
+      world.log.socketTicks.forEach( (value, key) => {
+        recHome.push(...value);
+      })
+      
+      // console.log('-- recHome --');
+      // console.log(recHome);
+      // console.log('-- ------------- --');
+      this.data = d3.group(recHome, d=> d.hub_name);
+    }
+    // console.log('-- this.data --');
+    // console.log(this.data);
+    // console.log('-- --------- --');
 
     // update scaleInfo
     this._set_scales(world);
+    // console.log('-- scale check --')
+    // console.log(this.xScale(0))
+    // console.log('-- ---------- --')
   }
 
   private _data_prep() {
@@ -167,7 +174,9 @@ export class lineChart {
     this.yScale = d3.scaleLinear(
       [this.scaleInfo.y.domainMin, this.scaleInfo.y.domainMax],
       [this.scaleInfo.y.rangeMin,  this.scaleInfo.y.rangeMax] );
-
+    // console.log('--- xScale ---');
+    // console.log(this.xScale(1));
+    // console.log('--- ------ ---');
 
 
     // set axis based on scales
@@ -177,27 +186,39 @@ export class lineChart {
     // refresh line based on scales
     this.line = d3
       .line()
-      .x(d => this.xScale(+d.time))
+      .x(d => {
+          // console.log('--- line.x ---');
+          // console.log(d);
+          // console.log(`x: ${d.time}, y: ${d.LIP} ==> x:${this.xScale(d.time)}, y: ${this.yScale(d.LIP)}`);
+          // console.log(`x: ${d.time}, y: ${d[this.recordName]} ==> x:${this.xScale(d.time)}, y: ${this.yScale(d[this.recordName])}`);
+          // console.log('--- ------ ---');
+          return this.xScale(d.time)
+        })
       .y(d => this.yScale(+d[this.recordName]))
+      // .y(d => {
+      //   // console.log(`x: ${d.time}, y: ${d[this.recordName]} ==> x:${this.xScale(d.time)}, y: ${this.yScale(d[this.recordName])}`);
+      //   return this.yScale(d.LIP);
+      //   })
       .curve(d3.curveLinear);
   }
 
   private _set_scales(world: nwo.World): void {
-    let xValues = [ ...world.log.socketTicks.keys() ]
+    this.scaleInfo.y.domainMin = 0;
+    this.scaleInfo.x.domainMin = 1;
+    
+    // set X domain max
     let xMin: number = 2
-    if (xValues.length > 0) {
-      //console.log('-- xValues --');
-      //console.log(xValues)
-      this.scaleInfo.x.domainMin = d3.min(xValues);
-      this.scaleInfo.x.domainMax = Math.max(xMin, d3.max(xValues));
-    }
+    this.scaleInfo.x.domainMax = Math.max(xMin, world.time);
 
-    let yValues: number[] = []
-    world.log.socketTicks.forEach( (value, key) => { for(let i of value) { yValues.push(i.LIP) }} );
+    // set Y domain max from LIP values
+    let newTicks: nwo.socketTickRecord[] = world.log.getLastTick();
     let yExtra: number = 0.15;
-    if (yValues.length > 0) {
-      this.scaleInfo.y.domainMin = 0; //d3.min(yValues) * (1 - yExtra);
-      this.scaleInfo.y.domainMax = d3.max(yValues) * (1 + yExtra);
+    if(newTicks !== undefined) {
+      newTicks.forEach( function (element) {
+        if(element[this.recordName] * (1 + yExtra) > this.scaleInfo.y.domainMax) {
+          this.scaleInfo.y.domainMax = element[this.recordName] * (1 + yExtra);
+        }
+      }, this)
     }
   }
 

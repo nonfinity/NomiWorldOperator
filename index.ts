@@ -30,15 +30,16 @@ let interval_ptr: ReturnType<typeof setInterval>
 
 // Initialize buttons and start with goState = false. Then add event handlers so buttons will, you know, work.
 toggle_goState(goState)
-document.getElementById('btn-play').addEventListener('click', (e:Event) => { toggle_goState(true) })
+// document.getElementById('btn-play').addEventListener('click', (e:Event) => { toggle_goState(true) })
+document.getElementById('btn-play').addEventListener('click', (e:Event) => { local_tick(true) })
 document.getElementById('btn-pause').addEventListener('click', (e:Event) => { toggle_goState(false) })
 
 // Initialize charts to show empty data
 let cfg = { height : 400, width: 400, margin: { top: 10, right: 10, bottom: 20, left: 20 } }
 
 let graph_UL: forceMap  =  new forceMap('graph-map-parent', cfg, world);
-let graph_BL: lineChart = new lineChart('graph-price-parent', cfg, world, 'price');
-let graph_BR: lineChart = new lineChart('graph-inv-parent', cfg, world, 'inventory');
+let graph_BL: lineChart = new lineChart('graph-price-parent', cfg, world, '', 'LIP');
+let graph_BR: lineChart = new lineChart('graph-inv-parent', cfg, world, '', 'inventory');
 
 populate_item_lists()
 
@@ -120,7 +121,7 @@ function local_tick(state: boolean = goState): void {
 
     //  * 3. Update presentation
     //  *    - add/move shipments on force graph
-    graph_UL.update(world)
+    // graph_UL.update(world)
 
     //  *    - update line charts
     graph_BL.update(world)
