@@ -33,8 +33,7 @@ export class lineChart {
   }
 
   hubSet: number[] = [];
-  // data: nwo.socketTickRecord[] = [];
-  data; //: d3.InternMap; // = new d3.InternMap;
+  data: d3.InternMap;
   recordName: string;
   itemName: string;
   colors = d3.scaleOrdinal(d3.schemeCategory10);
@@ -50,9 +49,10 @@ export class lineChart {
 
   constructor(parent_id: string, cfg: configSet, world: nwo.World, itemName: string, recordName: string) {
     this.parent = d3.select(`#${parent_id}`);
+    this.recordName = recordName;
+    this.itemName = itemName;
     this.cfg = cfg;
 
-    this.recordName = recordName;
     for(let i in world.hubs) {
       this.hubSet.push(world.hubs[i].id);
     }
@@ -85,6 +85,9 @@ export class lineChart {
     this._world_update(world);
     this._data_prep();
 
+    // console.log('--- world.update ---')
+    // console.log(this.data);
+
     this.svg.xAxis.call(this.xAxis);
     this.svg.yAxis.call(this.yAxis);
 
@@ -113,31 +116,38 @@ export class lineChart {
         )
       ;
 
-    this.svg.chartlines
-      .selectAll('path')
-      .data(this.data)
-      .join(
-        enter => enter
-          .append('path')
-          .attr('class', 'chartline')
-          .attr('d', ([, d]) => this.line(d))
-          .style('stroke', (d, i) => this.colors(d[i]))
-          .style('stroke-width', 2)
-          .style('fill', 'transparent')
-          ,
-        update => update
-          .attr('d', ([, d]) => this.line(d))
-          ,
-        exit => exit
-          .call(item => item.remove() )
-          ,
-        )
-      ;
+    if(this.data !== undefined) {
+      this.svg.chartlines
+        .selectAll('path')
+        .data(this.data.get(this.itemName))
+        .join(
+          enter => enter
+            .append('path')
+            .attr('class', 'chartline')
+            .attr('d', ([, d]) => this.line(d))
+            .style('stroke', (d, i) => this.colors(d[i]))
+            .style('stroke-width', 2)
+            .style('fill', 'transparent')
+            ,
+          update => update
+            .attr('d', ([, d]) => this.line(d))
+            ,
+          exit => exit
+            .call(item => item.remove() )
+            ,
+          )
+        ;
+    }
     // console.log('--- end of update ---');
   }
 
+  change_item(world: nwo.World, itemName: string) {
+    this.itemName = itemName;
+    this.update(world);
+  }
+
   private _world_update(world: nwo.World) {
-    let tmp = world.log.getLastTick();
+    let tmp = world.log.getLastSocketTick();
 
 
     // console.log('-- socketTicks --');
@@ -152,14 +162,14 @@ export class lineChart {
       // console.log('-- recHome --');
       // console.log(recHome);
       // console.log('-- ------------- --');
-      this.data = d3.group(recHome, d=> d.hub_name);
+      this.data = d3.group(recHome, d => d.item_name, d=> d.hub_name);
     }
     // console.log('-- this.data --');
     // console.log(this.data);
     // console.log('-- --------- --');
 
     // update scaleInfo
-    this._set_scales(world);
+    this._set_scales(world.time);
     // console.log('-- scale check --')
     // console.log(this.xScale(0))
     // console.log('-- ---------- --')
@@ -202,25 +212,33 @@ export class lineChart {
       .curve(d3.curveLinear);
   }
 
-  private _set_scales(world: nwo.World): void {
+  private _set_scales(time: number): void {
     this.scaleInfo.y.domainMin = 0;
     this.scaleInfo.x.domainMin = 1;
     
     // set X domain max
     let xMin: number = 2
-    this.scaleInfo.x.domainMax = Math.max(xMin, world.time);
+    this.scaleInfo.x.domainMax = Math.max(xMin, time);
 
     // set Y domain max from LIP values
-    let newTicks: nwo.socketTickRecord[] = world.log.getLastTick();
     let yExtra: number = 0.15;
-    if(newTicks !== undefined) {
-      newTicks.forEach( function (element) {
-        if(element[this.recordName] * (1 + yExtra) > this.scaleInfo.y.domainMax) {
-          this.scaleInfo.y.domainMax = element[this.recordName] * (1 + yExtra);
-        }
-      }, this)
+    let yMax: number = 5;
+
+    if(this.data !== undefined) {
+      let dSet = this.data.get(this.itemName);
+      if (dSet !== undefined) {
+        this.data.get(this.itemName).forEach( (value, key) => {
+          value.forEach( (rVal, rKey) => {
+            if(rVal[this.recordName] > yMax) {
+              yMax = rVal[this.recordName];
+            }
+          }, this);
+        }, this);
+      }
+      this.scaleInfo.y.domainMax = yMax * (1 + yExtra);
     }
   }
+
 
   private _initialize_svg(): void {
     this.svg._root = this.parent

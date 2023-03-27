@@ -72,8 +72,11 @@
     current:      number,
     distance:     number,
     origin_id:    number,
+    origin_name:  string,
     target_id:    number,
+    target_name:  string,
     item_id:      number,
+    item_name:    string,
     quantity:     number,
   };
 
@@ -90,6 +93,13 @@ export class World {
   shipments:    Map<number, Shipment>   = new Map<number, Shipment>();
   sockets:      Map<number, ItemSocket> = new Map<number, ItemSocket>();
 
+  keys = {
+    hubs: 0,
+    edges: 0,
+    items: 0,
+    shipments: 0,
+    sockets: 0,
+  };
 
   // logging setup
   log = new Log(this);
@@ -98,7 +108,7 @@ export class World {
    * adds a new Hub to the World
    */
   addHub(name: string): Hub {
-    let id: number = this.hubs.size + 1
+    let id: number = this.keyClaim('hubs');
     let x = new Hub(this, id, name);
 
     this.hubs.set(id, x);
@@ -112,7 +122,7 @@ export class World {
    * adds a new Edge between two Hubs
    */
   addEdge(pointA: Hub, pointB: Hub, distance: number, cost: number, shipSize: number): Edge {
-    let id: number = this.edges.size + 1
+    let id: number = this.keyClaim('edges');
     let x = new Edge(id, pointA, pointB, distance, cost, shipSize);
     
     this.edges.set(id, x);
@@ -127,7 +137,7 @@ export class World {
   }
 
   addItem(name: string, minReserve: number, basePrice: number, swing: number, k_exp: number = 1): Item {
-    let id: number = this.items.size + 1
+    let id: number = this.keyClaim('items');
     let x: Item = new Item(this, id, name, minReserve, basePrice, swing, k_exp);
     
     this.items.set(id, x);
@@ -138,7 +148,7 @@ export class World {
   }
 
   addShipment(origin: Hub, target: Hub, item: Item, distance: number, quantity: number): Shipment {
-    let id: number = this.shipments.size + 1
+    let id: number = this.keyClaim('shipments');
     let x: Shipment = new Shipment(id, origin, target, item, distance, quantity);
 
     this.shipments.set(id, x);
@@ -148,11 +158,11 @@ export class World {
     return x;
   }
 
-  getHubbyID(which: number): Hub {
+  getHubByID(which: number): Hub {
     return this.hubs.get(which);
   }
 
-  getHubbyName(which: string): Hub {
+  getHubByName(which: string): Hub {
     let out: Hub
 
     for(let [key, value] of this.hubs) {
@@ -164,11 +174,11 @@ export class World {
     return out;
   }
 
-  getItembyID(which: number): Item {
+  getItemByID(which: number): Item {
     return this.items.get(which);
   }
 
-  getItembyName(which: string): Item {
+  getItemByName(which: string): Item {
     let out: Item
 
     for(let [key, value] of this.items) {
@@ -180,21 +190,21 @@ export class World {
     return out;
   }
 
-  getSocketsfromHub(which: Hub): Map<number, ItemSocket> {
+  getSocketsFromHub(which: Hub): Map<number, ItemSocket> {
     let out: Map<number, ItemSocket>
     out = this.hubs.get(which.id).sockets
 
     return out;
   }
 
-  getSocketsfromItem(which: Item): Map<number, ItemSocket> {
+  getSocketsFromItem(which: Item): Map<number, ItemSocket> {
     let out: Map<number, ItemSocket>
     out = this.items.get(which.id).sockets
 
     return out;
   }
 
-  getSocketbyHubItem(hub: Hub, item: Item): ItemSocket {
+  getSocketByHubItem(hub: Hub, item: Item): ItemSocket {
     let out: ItemSocket
 
     // check which is larger so we can iterate throug the smaller list
@@ -214,6 +224,26 @@ export class World {
       }
     }
 
+    return out;
+  }
+
+  keyClaim(which: string): number {
+    let out: number
+
+    if(this.keys[which] !== undefined) {
+      out = this.keys[which];
+      this.keys[which] += 1;
+    }
+    return out;
+  }
+
+  keyPeek(which: string): number {
+     let out: number
+
+    if(this.keys[which] !== undefined) {
+      out = this.keys[which];
+      // this.keys[which] += 1;
+    }
     return out;
   }
 
@@ -311,7 +341,7 @@ export class Hub {
    * add a new ItemSocket to this Hub
    */
   addSocket(item:Item, production: number, consumption: number, inventory?: number, baseQty?: number): void {
-    let id: number = this.parentWorld.sockets.size + 1
+    let id: number = this.parentWorld.keyClaim('sockets');
     let x = new ItemSocket(this, id, item, production, consumption, inventory, baseQty);
   
     this.sockets.set(id, x);
@@ -635,34 +665,36 @@ export class ItemSocket {
  * an Edge is a bidirectional connection between two Hubs
  */
 export class Edge {
-  /**
-   * the world assigned identifier
-   */
-  id:           number;
-  /**
-   * the world in which this Edge exists
-   */
-  parentWorld:  World;
-  /**
-   * one of the two Hubs connected by this Edge
-   */
-  pointA:       Hub;
-  /**
-   * one of the two Hubs connected by this Edge
-   */
-  pointB:       Hub;
-  /**
-   * the time in ticks it takes to travel along this Edge
-   */
-  distance:     number;
-  /**
-   * The price difference required between the two hubs for a Shipment to travel this Edge. 
-   */
-  cost:         number;
-  /**
-   * This maximum shipment size allowed on this edge
-   */
-  shipSize:     number;
+  // Child properties
+    /**
+     * the world assigned identifier
+     */
+    id:           number;
+    /**
+     * the world in which this Edge exists
+     */
+    parentWorld:  World;
+    /**
+     * one of the two Hubs connected by this Edge
+     */
+    pointA:       Hub;
+    /**
+     * one of the two Hubs connected by this Edge
+     */
+    pointB:       Hub;
+    /**
+     * the time in ticks it takes to travel along this Edge
+     */
+    distance:     number;
+    /**
+     * The price difference required between the two hubs for a Shipment to travel this Edge. 
+     */
+    cost:         number;
+    /**
+     * This maximum shipment size allowed on this edge
+     */
+    shipSize:     number;
+  //
 
   constructor(id: number, pointA: Hub, pointB: Hub, distance: number, cost: number, shipSize: number) {
     this.id = id;
@@ -741,14 +773,14 @@ export class Edge {
      * So here we start with pointA to iterate through sockets and confirm they exist on B
      * this get the intersection A ∩ B
      */ 
-    for(let key in this.pointA.sockets) {
+    for(let [key, value] of this.pointA.sockets) {
+      // declare some stuff to make reading easier later
+      let aSocket = value;
+      let bSocket = this.pointB.getSocketbyItemID(value.item.id);
+
       // if socket of given item exists on both Hubs
-      if(this.pointB.sockets[key] !== undefined) {
+      if(bSocket !== undefined ) {
       
-        // declare some stuff to make reading easier later
-        let item = this.pointA.sockets[key].item;
-        let aSocket = this.pointA.sockets[key];
-        let bSocket = this.pointB.sockets[key];
         let doShip: boolean = false;
         let beg: ItemSocket;
         let end: ItemSocket;
@@ -771,14 +803,15 @@ export class Edge {
         // if a shipment is doable based on price
         if(doShip) {
           // set size of shipment based on beginning inventory and minReserve
-          let q: number = beg.inventory - (beg.baseQty * item.minReserve);
+          let q: number = beg.inventory - (beg.baseQty * value.item.minReserve);
               q = Math.min(q, this.shipSize);
               q = Math.max(q, 0);
           
           // if there is shippable inventory, do the shipment
           if (q > 0) {
             beg.inventory -= q;
-            this.parentWorld.addShipment(beg.parentHub, end.parentHub, item, this.distance, q)
+            let x = this.parentWorld.addShipment(beg.parentHub, end.parentHub, value.item, this.distance, q)
+            // console.log(`Shipment ${x.id} departed @ ${x.origin.name} with ${x.quantity} units of ${x.item.name}`);
           }
         }
       }
@@ -806,39 +839,41 @@ export class Edge {
  * a Shipment is a collection of Items moving along Edges between two Hubs
  */
 export class Shipment {
-  /**
-   * the world assigned identifier
-   */
-  id:           number;
-  /**
-   * The number of ticks that have been traveled so far.
-   * current always starts at zero.
-   */
-  current:      number = 0;
-  /**
-   * The remaining number of ticks required to reach the destination
-   */
-  distance:     number;
-  /**
-   * The Hub from which this Shipment originated
-   */
-  origin :      Hub;
-  /**
-   * The Hub at which this Shipment will end it's journey
-   */
-  target :      Hub;
-  /**
-   * The Item carried in this Shipment
-   */
-  item:         Item;
-  /**
-   * The amount of Item carried in this Shipment
-   */
-  quantity:     number;
-  /**
-   * a boolean indicator of if this shipment has been delivered
-   */
-  isDelivered:  boolean = false;
+  // Child properties
+    /**
+     * the world assigned identifier
+     */
+    id:           number;
+    /**
+     * The number of ticks that have been traveled so far.
+     * current always starts at zero.
+     */
+    current:      number = 0;
+    /**
+     * The remaining number of ticks required to reach the destination
+     */
+    distance:     number;
+    /**
+     * The Hub from which this Shipment originated
+     */
+    origin :      Hub;
+    /**
+     * The Hub at which this Shipment will end it's journey
+     */
+    target :      Hub;
+    /**
+     * The Item carried in this Shipment
+     */
+    item:         Item;
+    /**
+     * The amount of Item carried in this Shipment
+     */
+    quantity:     number;
+    /**
+     * a boolean indicator of if this shipment has been delivered
+     */
+    isDelivered:  boolean = false;
+  //
 
   constructor(id: number, origin: Hub, target: Hub, item: Item, distance: number, quantity: number) {
     this.origin = origin;
@@ -878,6 +913,7 @@ export class Shipment {
 
     // if at destination, offload goods
     if( this.current == this.distance) {
+      // console.log(`Shipment ${this.id} arrived @ ${this.target.name} with ${this.quantity} units of ${this.item.name}`);
       this.target.getSocketbyItemID(this.item.id).inventory += this.quantity
       this.quantity = 0;
 
@@ -908,8 +944,11 @@ export class Shipment {
       current:      this.current,
       distance:     this.distance,
       origin_id:    this.origin.id,
+      origin_name:  this.origin.name,
       target_id:    this.target.id,
+      target_name:  this.target.name,
       item_id:      this.item.id,
+      item_name:    this.item.name,
       quantity:     this.quantity,
     };
 
@@ -995,14 +1034,12 @@ class Log {
     this.socketTicks.set(tick, sockets);
   }
 
-  getLastTick(): socketTickRecord[] {
-    // console.log('-- getLastTick() --');
-    // console.log(this.socketTicks);
-    // console.log(`socket tick size = ${this.socketTicks.size}`)
-    // console.log(this.socketTicks.get(this.socketTicks.size));
-    // console.log(this.socketTicks.get(this.socketTicks.size - 1));
-    // console.log('-- ------------- --');
+  getLastSocketTick(): socketTickRecord[] {
     return this.socketTicks.get(this.socketTicks.size);
+  }
+
+  getLastShipmentTick(): shipmentTickRecord[] {
+    return this.shipmentTicks.get(this.shipmentTicks.size);
   }
 
 }

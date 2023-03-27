@@ -27,21 +27,31 @@ let tick_interval: number = 0.25;
  */
 let interval_ptr: ReturnType<typeof setInterval>
 
+/**
+ * the first Item in the simulation. All graphs will be defaulted to this.
+ */
+let firstItem: string = ""
+
 
 // Initialize buttons and start with goState = false. Then add event handlers so buttons will, you know, work.
 toggle_goState(goState)
-// document.getElementById('btn-play').addEventListener('click', (e:Event) => { toggle_goState(true) })
-document.getElementById('btn-play').addEventListener('click', (e:Event) => { local_tick(true) })
+document.getElementById('btn-play').addEventListener('click', (e:Event) => { toggle_goState(true) })
+// document.getElementById('btn-play').addEventListener('click', (e:Event) => { local_tick(true) })
 document.getElementById('btn-pause').addEventListener('click', (e:Event) => { toggle_goState(false) })
 
 // Initialize charts to show empty data
 let cfg = { height : 400, width: 400, margin: { top: 10, right: 10, bottom: 20, left: 20 } }
 
-let graph_UL: forceMap  =  new forceMap('graph-map-parent', cfg, world);
+let graph_UL: forceMap  =  new forceMap('graph-map-parent', cfg, world, 'Food');
 let graph_BL: lineChart = new lineChart('graph-price-parent', cfg, world, '', 'LIP');
 let graph_BR: lineChart = new lineChart('graph-inv-parent', cfg, world, '', 'inventory');
 
 populate_item_lists()
+
+// set items on the charts
+graph_UL.change_item(world, firstItem);
+graph_BL.change_item(world, firstItem);
+graph_BR.change_item(world, firstItem);
 
 
 
@@ -121,7 +131,7 @@ function local_tick(state: boolean = goState): void {
 
     //  * 3. Update presentation
     //  *    - add/move shipments on force graph
-    // graph_UL.update(world)
+    graph_UL.update(world)
 
     //  *    - update line charts
     graph_BL.update(world)
@@ -189,18 +199,21 @@ function populate_item_lists() {
   let places = document.getElementsByName('item-list');
   //console.log(places);
 
-  let items = Object.values(world.items).map(d => ({ name: d.name, id: d.id }) )
-
+  // let items = Object.values(world.items).map(d => ({ name: d.name, id: d.id }) )
   for(let p of places) {
     p.addEventListener("change", item_changed);
 
-    for (let i of items) {
+    for (let [key, value] of world.items) {
+      if(firstItem === "") { firstItem = value.name; }
+
       let tmp: HTMLOptionElement = document.createElement('option')
-      tmp.setAttribute('value', i.name)
-      tmp.innerText = i.name
+      tmp.setAttribute('value', value.name)
+      tmp.innerText = value.name
       
       p.appendChild(tmp);
     }
+
+    p.setAttribute('value', firstItem);
   }
 }
 
@@ -208,13 +221,24 @@ function populate_item_lists() {
  * eventhandler for when an item dropdown is changed
  */
 function item_changed(event) {
-  console.log(this.getAttribute('id'))
+  // console.log(`selector ${this.getAttribute('id')} has value of "${this.value}"`)
   
-  let graph_map: { [key : string] : lineChart }= {
-    'price-item' : graph_BL,
-    'inventory-item' : graph_BR,
+  // let graph_map: { [key : string] : lineChart }= {
+  //   'price-item' : graph_BL,
+  //   'inventory-item' : graph_BR,
+  // }
+
+  let change_set = [
+    graph_UL,
+    graph_BL,
+    graph_BR,
+  ]
+
+  for(let i of change_set) {
+    i.change_item(world, this.value);
   }
 
-  graph_map[this.getAttribute('id')].recordName = this.innerText
+  // graph_map[this.getAttribute('id')].itemName = this.value;
+  // graph_map[this.getAttribute('id')].change_item(world, this.value);
 
 }

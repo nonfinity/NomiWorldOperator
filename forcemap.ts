@@ -1,5 +1,4 @@
-
-import * as nwo from './scripts/nwo_v001';
+import * as nwo from './scripts/nwo_v0.0.02';
 import * as d3 from 'd3';
 
 interface configSet {
@@ -34,9 +33,11 @@ export class forceMap {
   simulation: d3.forceSimulation;
 
   shipments: any;
+  itemName: string;
 
-  constructor(parent_id: string, cfg: configSet, world: nwo.World) {
+  constructor(parent_id: string, cfg: configSet, world: nwo.World, itemName: string) {
     this.parent = d3.select(`#${parent_id}`);
+    this.itemName = itemName;
     this.cfg = cfg
     
 
@@ -57,59 +58,46 @@ export class forceMap {
   }
 
   update(world: nwo.World) {
-    // update shipments underlier
-    this.shipments = Object
-      .values(world['shipments'])
-      .map(d => ({
-        world_id: d.id,
-        current: d.current,
-        distance: d.distance,
-        source: d.origin.id,
-        target: d.ending.id,
-        })
-      );
-    
-    // update shipments SVG elements
-    this.svg.shipments
-      .selectAll('rect')
-      .data(this.shipments)
-      .join(
-        enter => enter
-          .append('rect')
-          .attr('class', 'shipment')
-          .attr('height', 5)
-          .attr('width', 5)
-          .attr('rx', 2)
-          .attr('ry', 2)
-          .attr('x', d => this.nodes[d.source].x)
-          .attr('y', d => this.nodes[d.source].y)
-          ,
-        update => update
-          .attr('x', d => d3.interpolateNumber(this.nodes[d.source].x, this.nodes[d.target].x)(d.current / d.distance) - 4)
-          .attr('y', d => d3.interpolateNumber(this.nodes[d.source].y, this.nodes[d.target].y)(d.current / d.distance) - 4)
-          ,
-        exit => exit
-          .call(item => item.remove() )
-          ,
-        )
-      ;
-  }
+    this._prep_shipments(world);
+
+    if(this.shipments !== undefined) {
+      // update shipments SVG elements
+      this.svg.shipments
+        .selectAll('rect')
+        .data(this.shipments)
+        .join(
+          enter => enter
+            .append('rect')
+            .attr('class', 'shipment')
+            .attr('height', 5)
+            .attr('width', 5)
+            .attr('rx', 2)
+            .attr('ry', 2)
+            .attr('x', d => this.nodes[d.origin_id].x)
+            .attr('y', d => this.nodes[d.origin_id].y)
+            ,
+          update => update
+            .attr('x', d => d3.interpolateNumber(this.nodes[d.origin_id].x, this.nodes[d.target_id].x)(d.current / d.distance) - 4)
+            .attr('y', d => d3.interpolateNumber(this.nodes[d.origin_id].y, this.nodes[d.target_id].y)(d.current / d.distance) - 4)
+            ,
+          exit => exit
+            .call(item => item.remove() )
+            ,
+          )
+        ;
+    } // end of if
+  } // end of update()
 
   private _world_update(world: nwo.World) {
     this.nodes = this._format_node(world);
     this.links = this._format_link(world);
     
-    this.shipments = Object
-      .values(world['shipments'])
-      .map(d => ({
-        world_id: d.id,
-        current: d.current,
-        distance: d.distance,
-        source: d.origin.id,
-        target: d.ending.id,
-        })
-      );
-    
+    this._prep_shipments(world);
+  }
+
+  change_item(world: nwo.World, itemName: string) {
+    this.itemName = itemName;
+    this.update(world);
   }
 
   private _forceTick() {
@@ -217,39 +205,41 @@ export class forceMap {
 }
 
   private _format_node(world: nwo.World): any[] {
-    /*
     let out = [];
     
-    let home = world['hubs']
-    for(let i in home) {
-      out.push({world_id: home[i].id, name: home[i].name})
+    for(let [key, value] of world.hubs) {
+      out.push({world_id: value.id, name: value.name})
     }
 
-    //console.log('-- format_node --')
-    //console.log(out)
-    //console.log(Object.values(world['hubs']).map(d => ({world_id: d.id, name: d.name})) )
-    //return out;
-    */
-    return Object.values(world['hubs']).map(d => ({world_id: d.id, name: d.name}));
+    return out;
   }
 
   private _format_link(world: nwo.World): linkDef[] {
-    /*
     let out: linkDef[] = [];
 
-    let home = world['edges']
-    for(let i in home) {
-      //console.log(home[i].pointA.id);
-      let tmp: linkDef = { source: home[i].pointA.id, target: home[i].pointB.id };
-      out.push(tmp);
+    for(let [key, value] of world.edges) {
+      out.push({ source: value.pointA.id, target: value.pointB.id })
     }
 
-    //console.log('-- format link --')
-    //console.log(out)
-    //console.log(Object.values(world['edges']).map(d => ({source: d.pointA.id, target: d.pointB.id})) )
-    //return out;
-    */
-    return Object.values(world['edges']).map(d => ({source: d.pointA.id, target: d.pointB.id}))
+    return out;
+  }
+
+  private _prep_shipments(world: nwo.World) {
+    // update shipments underlier
+    // console.log(`--- prep shipments ---`)
+    let step1 = world.log.getLastShipmentTick();
+    if(step1 !== undefined) {
+      
+      let step2 = d3.group(step1, d => d.item_name)
+      if(step2 !== undefined) {
+        
+        let step3 = step2.get(this.itemName)
+        if(step3 !== undefined) {
+          this.shipments = step3;
+        }
+      }
+    }
+
   }
 
   private _svg_update(): void {
