@@ -1,12 +1,11 @@
 import './style.css';
-import { world } from './nwoTest02';
-import * as d3 from 'd3';
+import { world } from './nwoTest03';
 import { forceMap } from './forcemap';
 import { lineChart } from './linechart';
 
 /**
  * NOTES
- *  - is the d3 library really needed on THIS file?
+ *  
  *  
  */
 

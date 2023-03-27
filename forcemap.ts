@@ -179,6 +179,12 @@ export class forceMap {
         )
       ;
 
+    // prep shipments group so it's above edges and below hubs
+    this.svg.shipments = this.svg._root
+      .append("g")
+      .attr("class", "shipments")
+      ;
+
     // prep hubs group
     this.svg.hubs = this.svg._root
       .append("g")
@@ -196,12 +202,7 @@ export class forceMap {
           .attr("stroke", "black")
           .call(this._drag(this.simulation))
         )
-      ;
-    
-    this.svg.shipments = this.svg._root
-      .append("g")
-      .attr("class", "shipments")
-      ;
+      ;   
 }
 
   private _format_node(world: nwo.World): any[] {
