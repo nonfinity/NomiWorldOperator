@@ -1,5 +1,6 @@
 import * as nwo from './scripts/nwo_v0.0.02';
 import * as d3 from 'd3';
+import { world } from './nwoTest03';
 
 interface configSet {
   height: number,
@@ -17,6 +18,7 @@ interface linkDef {
   index?: number,
 };
 
+let interval_ptr: ReturnType<typeof setInterval>
 
 export class forceMap {
   cfg: configSet;
@@ -26,7 +28,14 @@ export class forceMap {
     hubs      : undefined,
     links     : undefined,
     shipments : undefined,
-  }
+  };
+  tooltip: { [key : string] : d3.node } = {
+    _root     : undefined,
+    style     : undefined,
+    contents  : undefined,
+  };
+
+  ttID = genUniqueId();
   
   nodes: any;
   links: linkDef[];
@@ -50,7 +59,7 @@ export class forceMap {
       .on('tick', d => this._forceTick() ) // context is lost during the tick call and must be passed to be accessed
       ;
 
-    
+    this._tooltip_initialize();
     this._svg_initialize();
     //this._svg_update();
 
@@ -149,7 +158,126 @@ export class forceMap {
       .on("end", dragended);
   }
 
+  private _tooltip_initialize(): void {
+    this.tooltip._root = this.parent
+      .append("div")
+      .attr("id", `root-${this.ttID}`)
+      .attr("class", "tooltip")
+      // .style("position", "relative")
+      .style("display","none;")
+      ;
+    
+    this.tooltip.style = this.tooltip._root
+      .append("style")
+      .text(`
+        div#root-${this.ttID} {
+          bix-sizing: border-box;
+          position: absolute;
+          display: none;
+          left: -100000px;
+          padding: 0.2em 0.4em;
+          font-family: sans-serif;
+          font-size: 0.8em;
+          color: #333;
+          background-color: #fff;
+          border: 1px solid #333;
+          border-radius: 4px;
+          pointer-events: none;
+          z-index: 1;
+        }
+        div#ctnt-${this.ttID} p {
+          margin: 0;
+        }`)
+        ;
+    
+    this.tooltip.contents = this.tooltip._root
+      .append("div")
+      .attr("id", `ctnt-${this.ttID}`)
+      ;
+      
+    
+  }
+
+  private _tooltip_assign(selectionGroup: d3.selectionGroup, home: forceMap): void {
+    selectionGroup.each( function() {
+      d3.select(this)
+        .on("mouseover.tooltip", handleMouseOver)
+        .on("mousemove.tooltip", handleMouseMove)
+        .on("mouseleave.tooltip", handleMouseLeave)
+    });
+
+    function handleMouseOver() {
+      setContents(d3.select(this).datum());
+      showToolTip();
+
+      setContentTimer(d3.select(this).datum());
+    }
+
+    function handleMouseMove(event) {
+      let [mouseX, mouseY] = d3.pointer(event, this);
+
+      setPosition(mouseX, mouseY);
+      // setContents(d3.select(this).datum(), [mouseX, mouseY]);
+    }
+
+    function handleMouseLeave() {
+      hideToolTip();
+
+      // clear timer
+      if(interval_ptr !== undefined) { clearInterval(interval_ptr); }
+    }
+
+    function showToolTip(): void { home.tooltip._root.style("display", "block"); }
+    function hideToolTip(): void { home.tooltip._root.style("display", "none"); }
+
+    function setPosition(mouseX, mouseY) {
+      let posAdj = 10;
+      let stylePos = {
+        'top'     : 'initial',
+        'left'    : 'initial',
+        'right'   : 'initial',
+        'bottom'  : 'initial',
+      }
+
+      if( mouseY < home.cfg.height / 2) { stylePos.top    = `${mouseY + posAdj}px`; }
+      if( mouseX < home.cfg.width  / 2) { stylePos.left   = `${mouseX + posAdj}px`; }
+      if( mouseX > home.cfg.width  / 2) { stylePos.right  = `${home.cfg.width  - mouseX + posAdj}px`; }
+      if( mouseY > home.cfg.height / 2) { stylePos.bottom = `${home.cfg.height - mouseY + posAdj}px`; }
+
+      for(let key in stylePos) {
+        // console.log(`style set( ${key} --> ${stylePos[key]})`);
+        home.tooltip._root.style(key, stylePos[key]);
+      }
+
+    }
+
+    function setContentTimer(datum) {
+      if(home.tooltip._root.style("display") === "block") {
+        interval_ptr = setInterval(setContents, 100, datum)
+      } else if(interval_ptr !== undefined) {
+        clearInterval(interval_ptr)
+      }
+    }
+    function setContents(datum) {
+      // remove anything existing
+      home.tooltip.contents.selectAll("*").remove();
+
+      home.tooltip.contents
+        .append("p")
+        .text(datum.name);
+
+      let socket: nwo.ItemSocket = world.getHubByName(datum.name).getSocketbyItemName(home.itemName)
+      home.tooltip.contents
+        .append("p")
+        .text(`Price: ${currency.format(socket.LIP())}`);
+    }
+  }
+
   private _svg_initialize(): void {
+    this.parent
+      .style("position", "relative")
+      ;
+
     this.svg._root =  this.parent
       .append("svg")
       .attr("viewBox", [0, 0, this.cfg.width, this.cfg.height])
@@ -201,6 +329,7 @@ export class forceMap {
           .attr("fill", "yellow")
           .attr("stroke", "black")
           .call(this._drag(this.simulation))
+          .call(this._tooltip_assign, this)
         )
       ;   
 }
@@ -317,3 +446,27 @@ export class forceMap {
 
   }
 }
+
+
+// not part of the class itself, but used within.
+function genUniqueId(): string {
+  const dateStr = Date
+    .now()
+    .toString(36); // convert num to base 36 and stringify
+
+  const randomStr = Math
+    .random()
+    .toString(36)
+    .substring(2, 8); // start at index 2 to skip decimal point
+
+  return `${dateStr}`//-${randomStr}`;
+}
+
+const currency = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+
+  // These options are needed to round to whole numbers if that's what you want.
+  //minimumFractionDigits: 0, // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
+  //maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
+});
