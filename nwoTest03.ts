@@ -6,34 +6,45 @@
 import * as nwo from './scripts/nwo_v0.0.02';
 
 export const world = new nwo.World;
-  let i: nwo.Item = world.addItem("Mead", 0.2, 20, 0.5, 0.33);
+  let i1: nwo.Item = world.addItem("Mead", 0.2, 30, 0.5, 0.33);
+  let i2: nwo.Item = world.addItem("Food", 0.2, 20, 0.5, 1.00);
 
   let h1: nwo.Hub = world.addHub("Solitude")
-      h1.addSocket(i, 0, 100);
-
   let h2: nwo.Hub = world.addHub("Morthal")
-      h2.addSocket(i, 0, 30)
-  
   let h3: nwo.Hub = world.addHub("Dawnstar")
-      h3.addSocket(i, 0, 30)
-  
   let h4: nwo.Hub = world.addHub("Winterhold")
-      h4.addSocket(i, 0, 20)
-  
   let h5: nwo.Hub = world.addHub("Windhelm")
-      h5.addSocket(i, 0, 60)
-  
   let h6: nwo.Hub = world.addHub("Riften")
-      h6.addSocket(i, 300, 60)
-  
   let h7: nwo.Hub = world.addHub("Whiterun")
-      h7.addSocket(i, 150, 70)
-  
   let h8: nwo.Hub = world.addHub("Falkreath")
-      h8.addSocket(i, 0, 30)
-  
   let h9: nwo.Hub = world.addHub("Markarth")
-      h9.addSocket(i, 0, 50)
+
+      h1.addSocket(i1, 0, 100);
+      h2.addSocket(i1, 0, 30);
+      h3.addSocket(i1, 0, 30);
+      h4.addSocket(i1, 0, 20);
+      h5.addSocket(i1, 0, 60);
+      h6.addSocket(i1, 300, 60);
+      h7.addSocket(i1, 150, 70);
+      h8.addSocket(i1, 0, 30);
+      h9.addSocket(i1, 0, 50);
+
+      h1.addSocket(i2, 250, 310);
+      h2.addSocket(i2, 100, 115);
+      h3.addSocket(i2, 125, 165);
+      h4.addSocket(i2, 100, 145);
+      h5.addSocket(i2, 200, 280);
+      h6.addSocket(i2, 400, 290);
+      h7.addSocket(i2, 450, 370);
+      h8.addSocket(i2, 200, 100);
+      h9.addSocket(i2, 275, 325);
+  
+  
+  
+  
+  
+  
+  
   
 
   let edges = [
