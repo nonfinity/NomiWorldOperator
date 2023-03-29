@@ -59,8 +59,6 @@ graph_BR.change_item(world, firstItem);
 
 
 
-
-
 /* ----------------------------------------
  * 
  * FUNCTION DEFS

@@ -1,5 +1,6 @@
 import * as nwo from './scripts/nwo_v0.0.02';
 import * as d3 from 'd3';
+import { tooltip } from './tooltip';
 
 interface configSet {
   height: number,
@@ -17,16 +18,23 @@ interface linkDef {
   index?: number,
 };
 
+let interval_ptr: ReturnType<typeof setInterval>
 
 export class forceMap {
   cfg: configSet;
+  world: nwo.World;
   parent: d3.node;
   svg: { [key : string] : d3.node } = {
     _root     : undefined,
     hubs      : undefined,
     links     : undefined,
     shipments : undefined,
-  }
+  };
+  ttips: { [key : string] : tooltip } = {
+    hub       : undefined,
+    edge      : undefined,
+    shipment  : undefined,
+  };
   
   nodes: any;
   links: linkDef[];
@@ -38,7 +46,11 @@ export class forceMap {
   constructor(parent_id: string, cfg: configSet, world: nwo.World, itemName: string) {
     this.parent = d3.select(`#${parent_id}`);
     this.itemName = itemName;
-    this.cfg = cfg
+    this.world = world;
+    this.cfg = cfg;
+
+    this.ttips.hub = new tooltip(this, this.parent, this.cfg, this._hubTipContents);
+    this.ttips.shipment = new tooltip(this, this.parent, this.cfg, this._shipTipContents);
     
 
     this._world_update(world);
@@ -50,7 +62,6 @@ export class forceMap {
       .on('tick', d => this._forceTick() ) // context is lost during the tick call and must be passed to be accessed
       ;
 
-    
     this._svg_initialize();
     //this._svg_update();
 
@@ -75,10 +86,13 @@ export class forceMap {
             .attr('ry', 2)
             .attr('x', d => this.nodes[d.origin_id].x)
             .attr('y', d => this.nodes[d.origin_id].y)
+            .call(this.ttips.shipment.assign, this.ttips.shipment)
             ,
           update => update
-            .attr('x', d => d3.interpolateNumber(this.nodes[d.origin_id].x, this.nodes[d.target_id].x)(d.current / d.distance) - 4)
-            .attr('y', d => d3.interpolateNumber(this.nodes[d.origin_id].y, this.nodes[d.target_id].y)(d.current / d.distance) - 4)
+            // .transition()
+            //   .duration(150)
+              .attr('x', d => d3.interpolateNumber(this.nodes[d.origin_id].x, this.nodes[d.target_id].x)(d.current / d.distance) - 4)
+              .attr('y', d => d3.interpolateNumber(this.nodes[d.origin_id].y, this.nodes[d.target_id].y)(d.current / d.distance) - 4)
             ,
           exit => exit
             .call(item => item.remove() )
@@ -150,6 +164,10 @@ export class forceMap {
   }
 
   private _svg_initialize(): void {
+    this.parent
+      .style("position", "relative")
+      ;
+
     this.svg._root =  this.parent
       .append("svg")
       .attr("viewBox", [0, 0, this.cfg.width, this.cfg.height])
@@ -201,6 +219,7 @@ export class forceMap {
           .attr("fill", "yellow")
           .attr("stroke", "black")
           .call(this._drag(this.simulation))
+          .call(this.ttips.hub.assign, this.ttips.hub)
         )
       ;   
 }
@@ -240,6 +259,29 @@ export class forceMap {
         }
       }
     }
+
+  }
+
+  private _shipTipContents(d: d3.datum): string[] {
+    return [
+      `Shipment: ${d.id}`,
+      `Contents: ${d.quantity} ${d.item_name}`,
+      `${percent.format(d.current / d.distance)} to ${d.target_name}`
+    ]
+  }
+
+  private _hubTipContents(d: d3.datum): string[] {
+    let pg = this.parent_graph;  // when called, the context is this = a tooltip class object
+
+    let hub: nwo.Hub  = pg.world.getHubByID(d.world_id);
+    let item: nwo.Item = pg.world.getItemByName(pg.itemName);
+    let socket: nwo.ItemSocket = pg.world.getSocketByHubItem(hub, item)
+
+    return [
+      `${d.name}`,
+      `${pg.itemName}: ${currency.format(socket.LIP())}`,
+      `Inventory: ${socket.inventory} (${percent.format(socket.invRatio())})`
+    ]
 
   }
 
@@ -317,3 +359,22 @@ export class forceMap {
 
   }
 }
+
+
+// not part of the class itself, but used within.
+const currency = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+
+  // These options are needed to round to whole numbers if that's what you want.
+  //minimumFractionDigits: 0, // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
+  //maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
+});
+
+const percent = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+
+  // These options are needed to round to whole numbers if that's what you want.
+  minimumFractionDigits: 0, // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
+  maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
+})
