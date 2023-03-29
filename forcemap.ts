@@ -1,6 +1,6 @@
 import * as nwo from './scripts/nwo_v0.0.02';
 import * as d3 from 'd3';
-import { world } from './nwoTest03';
+import { tooltip } from './tooltip';
 
 interface configSet {
   height: number,
@@ -22,6 +22,7 @@ let interval_ptr: ReturnType<typeof setInterval>
 
 export class forceMap {
   cfg: configSet;
+  world: nwo.World;
   parent: d3.node;
   svg: { [key : string] : d3.node } = {
     _root     : undefined,
@@ -29,13 +30,11 @@ export class forceMap {
     links     : undefined,
     shipments : undefined,
   };
-  tooltip: { [key : string] : d3.node } = {
-    _root     : undefined,
-    style     : undefined,
-    contents  : undefined,
+  ttips: { [key : string] : tooltip } = {
+    hub       : undefined,
+    edge      : undefined,
+    shipment  : undefined,
   };
-
-  ttID = genUniqueId();
   
   nodes: any;
   links: linkDef[];
@@ -47,7 +46,11 @@ export class forceMap {
   constructor(parent_id: string, cfg: configSet, world: nwo.World, itemName: string) {
     this.parent = d3.select(`#${parent_id}`);
     this.itemName = itemName;
-    this.cfg = cfg
+    this.world = world;
+    this.cfg = cfg;
+
+    this.ttips.hub = new tooltip(this, this.parent, this.cfg, this._hubTipContents);
+    this.ttips.shipment = new tooltip(this, this.parent, this.cfg, this._shipTipContents);
     
 
     this._world_update(world);
@@ -59,7 +62,6 @@ export class forceMap {
       .on('tick', d => this._forceTick() ) // context is lost during the tick call and must be passed to be accessed
       ;
 
-    this._tooltip_initialize();
     this._svg_initialize();
     //this._svg_update();
 
@@ -84,10 +86,13 @@ export class forceMap {
             .attr('ry', 2)
             .attr('x', d => this.nodes[d.origin_id].x)
             .attr('y', d => this.nodes[d.origin_id].y)
+            .call(this.ttips.shipment.assign, this.ttips.shipment)
             ,
           update => update
-            .attr('x', d => d3.interpolateNumber(this.nodes[d.origin_id].x, this.nodes[d.target_id].x)(d.current / d.distance) - 4)
-            .attr('y', d => d3.interpolateNumber(this.nodes[d.origin_id].y, this.nodes[d.target_id].y)(d.current / d.distance) - 4)
+            // .transition()
+            //   .duration(150)
+              .attr('x', d => d3.interpolateNumber(this.nodes[d.origin_id].x, this.nodes[d.target_id].x)(d.current / d.distance) - 4)
+              .attr('y', d => d3.interpolateNumber(this.nodes[d.origin_id].y, this.nodes[d.target_id].y)(d.current / d.distance) - 4)
             ,
           exit => exit
             .call(item => item.remove() )
@@ -158,121 +163,6 @@ export class forceMap {
       .on("end", dragended);
   }
 
-  private _tooltip_initialize(): void {
-    this.tooltip._root = this.parent
-      .append("div")
-      .attr("id", `root-${this.ttID}`)
-      .attr("class", "tooltip")
-      // .style("position", "relative")
-      .style("display","none;")
-      ;
-    
-    this.tooltip.style = this.tooltip._root
-      .append("style")
-      .text(`
-        div#root-${this.ttID} {
-          bix-sizing: border-box;
-          position: absolute;
-          display: none;
-          left: -100000px;
-          padding: 0.2em 0.4em;
-          font-family: sans-serif;
-          font-size: 0.8em;
-          color: #333;
-          background-color: #fff;
-          border: 1px solid #333;
-          border-radius: 4px;
-          pointer-events: none;
-          z-index: 1;
-        }
-        div#ctnt-${this.ttID} p {
-          margin: 0;
-        }`)
-        ;
-    
-    this.tooltip.contents = this.tooltip._root
-      .append("div")
-      .attr("id", `ctnt-${this.ttID}`)
-      ;
-      
-    
-  }
-
-  private _tooltip_assign(selectionGroup: d3.selectionGroup, home: forceMap): void {
-    selectionGroup.each( function() {
-      d3.select(this)
-        .on("mouseover.tooltip", handleMouseOver)
-        .on("mousemove.tooltip", handleMouseMove)
-        .on("mouseleave.tooltip", handleMouseLeave)
-    });
-
-    function handleMouseOver() {
-      setContents(d3.select(this).datum());
-      showToolTip();
-
-      setContentTimer(d3.select(this).datum());
-    }
-
-    function handleMouseMove(event) {
-      let [mouseX, mouseY] = d3.pointer(event, this);
-
-      setPosition(mouseX, mouseY);
-      // setContents(d3.select(this).datum(), [mouseX, mouseY]);
-    }
-
-    function handleMouseLeave() {
-      hideToolTip();
-
-      // clear timer
-      if(interval_ptr !== undefined) { clearInterval(interval_ptr); }
-    }
-
-    function showToolTip(): void { home.tooltip._root.style("display", "block"); }
-    function hideToolTip(): void { home.tooltip._root.style("display", "none"); }
-
-    function setPosition(mouseX, mouseY) {
-      let posAdj = 10;
-      let stylePos = {
-        'top'     : 'initial',
-        'left'    : 'initial',
-        'right'   : 'initial',
-        'bottom'  : 'initial',
-      }
-
-      if( mouseY < home.cfg.height / 2) { stylePos.top    = `${mouseY + posAdj}px`; }
-      if( mouseX < home.cfg.width  / 2) { stylePos.left   = `${mouseX + posAdj}px`; }
-      if( mouseX > home.cfg.width  / 2) { stylePos.right  = `${home.cfg.width  - mouseX + posAdj}px`; }
-      if( mouseY > home.cfg.height / 2) { stylePos.bottom = `${home.cfg.height - mouseY + posAdj}px`; }
-
-      for(let key in stylePos) {
-        // console.log(`style set( ${key} --> ${stylePos[key]})`);
-        home.tooltip._root.style(key, stylePos[key]);
-      }
-
-    }
-
-    function setContentTimer(datum) {
-      if(home.tooltip._root.style("display") === "block") {
-        interval_ptr = setInterval(setContents, 100, datum)
-      } else if(interval_ptr !== undefined) {
-        clearInterval(interval_ptr)
-      }
-    }
-    function setContents(datum) {
-      // remove anything existing
-      home.tooltip.contents.selectAll("*").remove();
-
-      home.tooltip.contents
-        .append("p")
-        .text(datum.name);
-
-      let socket: nwo.ItemSocket = world.getHubByName(datum.name).getSocketbyItemName(home.itemName)
-      home.tooltip.contents
-        .append("p")
-        .text(`Price: ${currency.format(socket.LIP())}`);
-    }
-  }
-
   private _svg_initialize(): void {
     this.parent
       .style("position", "relative")
@@ -329,7 +219,7 @@ export class forceMap {
           .attr("fill", "yellow")
           .attr("stroke", "black")
           .call(this._drag(this.simulation))
-          .call(this._tooltip_assign, this)
+          .call(this.ttips.hub.assign, this.ttips.hub)
         )
       ;   
 }
@@ -369,6 +259,29 @@ export class forceMap {
         }
       }
     }
+
+  }
+
+  private _shipTipContents(d: d3.datum): string[] {
+    return [
+      `Shipment: ${d.id}`,
+      `Contents: ${d.quantity} ${d.item_name}`,
+      `${percent.format(d.current / d.distance)} to ${d.target_name}`
+    ]
+  }
+
+  private _hubTipContents(d: d3.datum): string[] {
+    let pg = this.parent_graph;  // when called, the context is this = a tooltip class object
+
+    let hub: nwo.Hub  = pg.world.getHubByID(d.world_id);
+    let item: nwo.Item = pg.world.getItemByName(pg.itemName);
+    let socket: nwo.ItemSocket = pg.world.getSocketByHubItem(hub, item)
+
+    return [
+      `${d.name}`,
+      `${pg.itemName}: ${currency.format(socket.LIP())}`,
+      `Inventory: ${socket.inventory} (${percent.format(socket.invRatio())})`
+    ]
 
   }
 
@@ -449,19 +362,6 @@ export class forceMap {
 
 
 // not part of the class itself, but used within.
-function genUniqueId(): string {
-  const dateStr = Date
-    .now()
-    .toString(36); // convert num to base 36 and stringify
-
-  const randomStr = Math
-    .random()
-    .toString(36)
-    .substring(2, 8); // start at index 2 to skip decimal point
-
-  return `${dateStr}`//-${randomStr}`;
-}
-
 const currency = new Intl.NumberFormat('en-US', {
   style: 'currency',
   currency: 'USD',
@@ -470,3 +370,11 @@ const currency = new Intl.NumberFormat('en-US', {
   //minimumFractionDigits: 0, // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
   //maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
 });
+
+const percent = new Intl.NumberFormat('en-US', {
+  style: 'percent',
+
+  // These options are needed to round to whole numbers if that's what you want.
+  minimumFractionDigits: 0, // (this suffices for whole numbers, but will print 2500.10 as $2,500.1)
+  maximumFractionDigits: 0, // (causes 2500.99 to be printed as $2,501)
+})
