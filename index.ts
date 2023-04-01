@@ -35,8 +35,8 @@ let firstItem: string = ""
 // Initialize buttons and start with goState = false. Then add event handlers so buttons will, you know, work.
 toggle_goState(goState)
 document.getElementById('btn-play').addEventListener('click', (e:Event) => { toggle_goState(true) })
-// document.getElementById('btn-play').addEventListener('click', (e:Event) => { local_tick(true) })
 document.getElementById('btn-pause').addEventListener('click', (e:Event) => { toggle_goState(false) })
+document.getElementById('btn-step').addEventListener('click', (e:Event) => { local_tick(true) })
 
 // Initialize charts to show empty data
 let cfg = { height : 400, width: 400, margin: { top: 10, right: 10, bottom: 20, left: 20 } }
