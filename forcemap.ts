@@ -141,7 +141,7 @@ export class forceMap {
   }
 
   change_item(world: nwo.World, itemName: string) {
-    console.log(`changing from ${this.itemName} to ${itemName}`)
+    // console.log(`changing from ${this.itemName} to ${itemName}`)
     this.itemName = itemName;
     // this._world_update(world);
     this.update(world);
@@ -267,7 +267,7 @@ export class forceMap {
     this.svg.hubs
       .selectAll('circle')
       .data(d => {
-        console.log(`--- hub join --- item = ${this.nodes.def[0].socket.name}`);
+        // console.log(`--- hub join --- item = ${this.nodes.def[0].socket.name}`);
         return this.nodes.def;
         })
       .join(
@@ -281,7 +281,7 @@ export class forceMap {
             )
           .attr('fill', d => { return this.hColor(d.socket.invRatio / 2)})
           .attr("stroke", "black")
-          // .call(this._drag(this.simulation))
+          .call(this._drag(this.simulation))
           .call(this.ttips.hub.assign, this.ttips.hub)
           ,
         update => update
@@ -307,7 +307,7 @@ export class forceMap {
           // console.log(`--- shipment join ---`);
           // console.log(this.nodes.def)
           return this.shipments
-          })
+          }, d => d.id)
         .join(
           enter => enter
             .append('rect')
@@ -321,8 +321,8 @@ export class forceMap {
             .call(this.ttips.shipment.assign, this.ttips.shipment)
             ,
           update => update
-            // .transition()
-            //   .duration(150)
+            .transition()
+              .duration(225)
               .attr('x', d => d3.interpolateNumber(this.nodes.def[d.origin_id].x, this.nodes.def[d.target_id].x)(d.current / d.distance) - 4)
               .attr('y', d => d3.interpolateNumber(this.nodes.def[d.origin_id].y, this.nodes.def[d.target_id].y)(d.current / d.distance) - 4)
             ,
