@@ -12,13 +12,57 @@ interface configSet {
     bottom: number,
   }
 };
+
 interface linkDef {
   source: number,
   target: number,
-  index?: number,
+  shipSize: number,
 };
+interface linkSet {
+  def: linkDef[],
+  format: {
+    size: {
+      scale: d3.scale,
+      domain: {
+        min: number,
+        max: number,
+      },
+    },
+  },
+}
 
-let interval_ptr: ReturnType<typeof setInterval>
+interface hubDef {
+  world_id: number,
+  name: string,
+  sockets: hubSocket[],
+};
+interface hubSocket {
+  id: number,
+  name: string,
+  price: number,
+  baseQty: number,
+  invRatio: number,
+  inventory: number,
+};
+interface hubSet {
+  def: hubDef[],
+  format: {
+    size: {
+      scale: d3.scale,
+      domain: {
+        min: number,
+        max: number,
+      }
+    }
+    color: {
+      scale: d3.scale,
+      domain: {
+        min: number,
+        max: number,
+      },
+    },
+  },
+};
 
 export class forceMap {
   cfg: configSet;
@@ -36,8 +80,8 @@ export class forceMap {
     shipment  : undefined,
   };
   
-  nodes: any;
-  links: linkDef[];
+  nodes: hubSet;
+  links: linkSet;
   simulation: d3.forceSimulation;
 
   shipments: any;
@@ -55,10 +99,10 @@ export class forceMap {
 
     this._world_update(world);
 
-    this.simulation = d3.forceSimulation(this.nodes)
+    this.simulation = d3.forceSimulation(this.nodes.def)
       .force("charge", d3.forceManyBody().strength(-500))
       .force("center", d3.forceCenter(cfg.width/2, cfg.height/2))
-      .force("link", d3.forceLink(this.links).strength(0.1))
+      .force("link", d3.forceLink(this.links.def).strength(0.1))
       .on('tick', d => this._forceTick() ) // context is lost during the tick call and must be passed to be accessed
       ;
 
@@ -118,14 +162,14 @@ export class forceMap {
     if (this.svg !== undefined) {
       this.svg.hubs
         .selectAll('circle')
-        .data(this.nodes)
+        .data(this.nodes.def)
         .join('circle')
           .attr('cx', d => d.x)
           .attr('cy', d => d.y)
 
       this.svg.links
         .selectAll('line')
-        .data(this.links)
+        .data(this.links.def)
         .join('line')
           .attr('x1', d => d.source.x)
           .attr('y1', d => d.source.y)
@@ -135,7 +179,7 @@ export class forceMap {
       
       // shipments are a whole different 'layer' and not involved in the force simulation
 
-      // add some fancy viewport manipulation here so the whole thing zooms fluidly
+      // add some fancy viewport manipulation here so the whole thing zooms fluidly?
     } // end of if
   }
 
@@ -171,9 +215,6 @@ export class forceMap {
     this.svg._root =  this.parent
       .append("svg")
       .attr("viewBox", [0, 0, this.cfg.width, this.cfg.height])
-      //.attr("width", cfg.width) //"100%")
-      //.attr("height", cfg.height) //"100%")
-      //.on('click', d=>console.log("clicky clack")) // why wont this do anything?!?!?
       ;
     
     // prep links group (first so it's on botom)
@@ -184,18 +225,23 @@ export class forceMap {
     
     this.svg.links
       .selectAll('line')
-      .data(this.links)
+      .data(this.links.def)
       .join(
         enter => enter
           .append("line")
           .attr("stroke", "blue")
-          .attr("stroke-width", 2)
+          .attr("stroke-opacity", "30%")
+          .attr("stroke-width", (d) => {
+            return `${this.links.format.size.scale(d.shipSize)}px`
+             })
           .attr('x1', d => d.source.x)
           .attr('y1', d => d.source.y)
           .attr('x2', d => d.target.x)
           .attr('y2', d => d.target.y)
         )
       ;
+      // console.log(`--- this.svg.links.data ---`)
+      // console.log(this.svg.links.data())
 
     // prep shipments group so it's above edges and below hubs
     this.svg.shipments = this.svg._root
@@ -209,39 +255,153 @@ export class forceMap {
       .attr("class", "hubs")
       ;
     
+    // console.log(`--- this.nodes.def ---`);
+    // console.log(this.nodes.def);
     this.svg.hubs
       .selectAll('circle')
-      .data(this.nodes)
+      // .data(this.nodes)
+      .data(this.nodes.def)
       .join(
         enter => enter
           .append('circle')
           .attr('r', 8)
+          .attr(`r`, (d) => {
+            let k: number;
+            for(let i in d.sockets) {
+              if (d.sockets[i].name === this.itemName) {
+                k = this.nodes.format.size.scale(d.sockets[i].baseQty);
+              }
+            }
+           
+            if (k !== undefined) {
+              return k;
+            } else {
+              return 8;
+            }
+            })
           .attr("fill", "yellow")
           .attr("stroke", "black")
           .call(this._drag(this.simulation))
           .call(this.ttips.hub.assign, this.ttips.hub)
         )
-      ;   
-}
+      ;
+      // console.log(`--- this.svg.hubs.data ---`);
+      // console.log(this.svg.hubs.data());
+  }
 
-  private _format_node(world: nwo.World): any[] {
-    let out = [];
+  private _format_node(world: nwo.World): hubSet {
+    let out: hubSet = {
+      def: [],
+      format: {
+        color: {
+          scale: undefined,
+          domain: {
+            min: 0,
+            max: 2,
+          },
+        },
+        size: {
+          scale: undefined,
+          domain: {
+            min: Infinity,
+            max: -Infinity,
+          }
+        }
+      },
+    };
     
     for(let [key, value] of world.hubs) {
-      out.push({world_id: value.id, name: value.name})
+      let tmpSockets: hubSocket[] = [];
+
+      for(let [sKey, sVal] of value.sockets) {
+        tmpSockets.push({
+          id: sVal.id,
+          name: sVal.item.name,
+          price: sVal.LIP(),
+          baseQty: sVal.baseQty,
+          invRatio: sVal.invRatio(),
+          inventory: sVal.inventory,
+        });
+      } // end of socket loop
+
+
+      // push hub definition to the set
+      out.def.push({
+        world_id: value.id,
+        name: value.name,
+        sockets: tmpSockets,
+      });
+    } // end of hub loop
+
+    this._update_node_scales(out)
+    return out;
+  }
+
+  private _format_link(world: nwo.World): linkSet {
+    let out: linkSet = {
+      def: [],
+      format: {
+        size: {
+          domain: {
+            min: Infinity,
+            max: -Infinity,
+          },
+          scale: undefined,
+        },
+      },
+    };
+    let fmt = out.format.size
+
+    // stroke range info
+    let stroke = {
+      min: 0.5,
+      max: 3.5,
+    };
+
+    for(let [key, value] of world.edges) {
+      if (value.shipSize < fmt.domain.min) { fmt.domain.min = value.shipSize }
+      if (value.shipSize > fmt.domain.max) { fmt.domain.max = value.shipSize }
+      
+      out.def.push({ 
+        source: value.pointA.id,
+        target: value.pointB.id,
+        shipSize: value.shipSize,
+         })
     }
+
+    fmt.scale = d3.scaleLinear()
+      .domain([fmt.domain.min, fmt.domain.max]) // input range
+      .range([stroke.min,  stroke.max])         //  output range
+      ;
 
     return out;
   }
 
-  private _format_link(world: nwo.World): linkDef[] {
-    let out: linkDef[] = [];
+  private _update_node_scales(nodes: hubSet = this.nodes): void {
+    let fmt = nodes.format;
+    let def = nodes.def;
 
-    for(let [key, value] of world.edges) {
-      out.push({ source: value.pointA.id, target: value.pointB.id })
-    }
+    // format range info
+    let color = { min: 0,   max: 255,   };
+    let size =  { min: 5,   max:  10,   };
+    
 
-    return out;
+    // update the hub size scale for this.itemName
+    // it is based on the socket's baseQty
+    for(let h in def) {
+      for(let i in def[h].sockets) {
+        let val = def[h].sockets[i];
+        if(val.name === this.itemName) {
+          if (val.baseQty < fmt.size.domain.min) { fmt.size.domain.min = val.baseQty }
+          if (val.baseQty > fmt.size.domain.max) { fmt.size.domain.max = val.baseQty }
+        }
+
+      } // end socket loop
+    } // end hub loop
+
+    fmt.size.scale = d3.scaleLinear()
+      .domain([fmt.size.domain.min, fmt.size.domain.max])
+      .range([size.min, size.max]);
   }
 
   private _prep_shipments(world: nwo.World) {
@@ -282,80 +442,6 @@ export class forceMap {
       `${pg.itemName}: ${currency.format(socket.LIP())}`,
       `Inventory: ${socket.inventory} (${percent.format(socket.invRatio())})`
     ]
-
-  }
-
-  private _svg_update(): void {
-    
-    // update hubs first
-    /*
-    this.svg.hubs
-      .selectAll('circle')
-      .data(this.nodes)
-      .join(
-        enter => enter
-          .append('circle')
-          .attr('r', 8)
-          .attr("fill", "yellow")
-          .attr("stroke", "black")
-          .call(this._drag(this.simulation))
-        //  ,
-        //update => update
-        //  ,
-        //exit => exit
-        //  .call(item => item.remove() )
-        //  ,
-        )
-      ;
-    */
-
-    // updaing the links
-    this.svg.links
-      .selectAll('line')
-      .data(this.links)
-      .join(
-        enter => enter
-          .append("line")
-          .attr("stroke", "blue")
-          .attr("stroke-width", 2)
-          .attr('x1', d => d.source.x)
-          .attr('y1', d => d.source.y)
-          .attr('x2', d => d.target.x)
-          .attr('y2', d => d.target.y)
-          ,
-        update => update
-          ,
-        exit => exit
-          .call(item => item.remove() )
-          ,
-        )
-      ;
-    
-    //
-    // update the shipments
-    this.svg.shipments
-      .selectAll('rect')
-      .data(this.shipments)
-      .join(
-        enter => enter
-          .append('rect')
-          .attr('class', 'shipment')
-          .attr('height', 4)
-          .attr('width', 4)
-          .attr('rx', 2)
-          .attr('ry', 2)
-          .attr('x', d => this.nodes[d.source].x)
-          .attr('y', d => this.nodes[d.source].y)
-          ,
-        update => update
-          ,
-        exit => exit
-          .call(item => item.remove() )
-          ,
-        )
-      ;
-
-      //this.simulation.alphaTarget(0.3).restart();
 
   }
 }
