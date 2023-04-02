@@ -652,7 +652,8 @@ export class ItemSocket {
       let tmp_r: number = 2 - r; // or (1-r) + r ... to mirror the value around 1
       let tmp_p: number = -1 * this.item.swing * this.item.basePrice * Math.pow(tmp_r - 1, this.item.k_exp) + this.item.basePrice;
 
-      out = 2 * this.item.basePrice - tmp_p; // or (base - tmp) + base ... to mirror the value around basePrice
+      // don't let extreme inventory levels allow prices to go negative
+      out = Math.max(0, 2 * this.item.basePrice - tmp_p); // or (base - tmp) + base ... to mirror the value around basePrice
     }
 
     
