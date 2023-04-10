@@ -8,13 +8,41 @@ body {
   padding: 0px;
   background-color: #686;
   min-height: 100vh;
+
+  display: flex;
+  flex-wrap: row wrap;
+}
+
+.inspector {
+  background-color: #f1f1f1;
+  border-right: 1px solid black;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scrollbar-width: 0px;
+
+  /* max-width: 250px; */
+  margin: 0;
+  padding: 0px;
+
+  flex: 0 0 250px;
+}
+
+.inspector::-webkit-scrollbar {
+  display: none;
+}
+
+.inspector > .ins_header {
+  padding: 5px;
 }
 
 .page {
   background-color: #F1F1F1;
   max-width: 1200px;
-  margin: 0px auto;
+  /* margin: 0px auto; */
+  margin: 0px auto 0px 0px;
   padding: 0px;
+
+  flex: 1 1 800px;
 }
 
 .header {
