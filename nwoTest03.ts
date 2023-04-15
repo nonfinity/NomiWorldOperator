@@ -3,7 +3,8 @@
  * 
  * This is based on Skyrim major cities
  */
-import * as nwo from './scripts/nwo_v0.0.02';
+// import * as nwo from './scripts/nwo_v0.0.02';
+import * as nwo from './scripts/nwo_v0.0.03';
 
 export const world = new nwo.World;
   let i1: nwo.Item = world.addItem("Mead", 0.2, 30, 0.5, 0.33);

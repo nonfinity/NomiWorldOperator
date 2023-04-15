@@ -1,4 +1,5 @@
-import * as nwo from './scripts/nwo_v0.0.02';
+// import * as nwo from './scripts/nwo_v0.0.02';
+import * as nwo from './scripts/nwo_v0.0.03';
 import * as d3 from 'd3';
 
 

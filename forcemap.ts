@@ -1,4 +1,5 @@
-import * as nwo from './scripts/nwo_v0.0.02';
+// import * as nwo from './scripts/nwo_v0.0.02';
+import * as nwo from './scripts/nwo_v0.0.03';
 import * as d3 from 'd3';
 import { tooltip } from './tooltip';
 
@@ -69,33 +70,35 @@ import { tooltip } from './tooltip';
 //
 
 export class forceMap {
-  cfg: configSet;
-  world: nwo.World;
-  parent: d3.node;
-  svg: { [key : string] : d3.node } = {
-    _root     : undefined,
-    hubs      : undefined,
-    links     : undefined,
-    shipments : undefined,
-  };
-  ttips: { [key : string] : tooltip } = {
-    hub       : undefined,
-    edge      : undefined,
-    shipment  : undefined,
-  };
-  
-  nodes: hubSet;
-  links: linkSet;
-  simulation: d3.forceSimulation;
+  // class member declarations
+    cfg: configSet;
+    world: nwo.World;
+    parent: d3.node;
+    svg: { [key : string] : d3.node } = {
+      _root     : undefined,
+      hubs      : undefined,
+      links     : undefined,
+      shipments : undefined,
+    };
+    ttips: { [key : string] : tooltip } = {
+      hub       : undefined,
+      edge      : undefined,
+      shipment  : undefined,
+    };
+    
+    nodes: hubSet;
+    links: linkSet;
+    simulation: d3.forceSimulation;
 
-  shipments: any;
-  itemName: string;
+    shipments: any;
+    itemName: string;
 
-  hubColors = {
-    min: '#FF0000',
-    max: '#00FF00',
-  };
-  hColor; // hub color interpolator
+    hubColors = {
+      min: '#FF0000',
+      max: '#00FF00',
+    };
+    hColor; // hub color interpolator
+  //
 
   constructor(parent_id: string, cfg: configSet, world: nwo.World, itemName: string) {
     this.parent = d3.select(`#${parent_id}`);
@@ -357,22 +360,6 @@ export class forceMap {
     };
     
     for(let [key, value] of world.hubs) {
-    //   let currSocket: hubSocket;
-
-    //   for(let [sKey, sVal] of value.sockets) {
-    //     if (sVal.item.name === this.itemName) {
-    //       console.log(`assign socket to item ${this.itemName}`)
-    //       currSocket = {
-    //         id: sVal.id,
-    //         name: sVal.item.name,
-    //         price: sVal.LIP(),
-    //         baseQty: sVal.baseQty,
-    //         invRatio: sVal.invRatio(),
-    //         inventory: sVal.inventory,
-    //       }; 
-    //     }
-    //   } // end of socket loop
-
 
       // push hub definition to the set
       out.def.push({
@@ -438,7 +425,7 @@ export class forceMap {
           world.getHubByID(node.world_id),
           world.getItemByName(this.itemName)
           )
-        
+
         node.socket = {
           id: socket.item.id,
           name: socket.item.name,

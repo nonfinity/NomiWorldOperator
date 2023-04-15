@@ -109,8 +109,21 @@ function toggle_goState(setState: boolean = !goState): void {
 
   if(goState) {
     interval_ptr = setInterval(local_tick, tick_interval * 1000)
+    beep(440,    400); // A
+    // beep(523.25, 400); // C
+    // beep(554.37, 350); // c#
+    beep(659.25, 300); // E
+    // beep(783.99, 400); // G
+    beep(830.61, 250); // G#
   } else if(interval_ptr !== undefined) {
     clearInterval(interval_ptr)
+
+    beep(440,    300); // A
+    beep(523.25, 250); // C
+    // beep(554.37, 350); // c#
+    // beep(659.25, 300); // E
+    beep(783.99, 200); // G
+    // beep(830.61, 300); // G#
   }
 }
 
@@ -121,7 +134,7 @@ function toggle_goState(setState: boolean = !goState): void {
 function local_tick(state: boolean = goState): void {
   if(state) {
     //  * 1. make a beep
-    beep();
+    // beep();
 
     //  * 2. NWO.World.tick()
     world.tick();
