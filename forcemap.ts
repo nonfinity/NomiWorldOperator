@@ -21,6 +21,7 @@ import { inspector } from './scripts/inspector';
     target: number,
     shipSize: number,
     world_id: number,
+    distance: number,
   };
   interface linkSet {
     def: linkDef[],
@@ -118,8 +119,10 @@ export class forceMap {
 
     this.simulation = d3.forceSimulation(this.nodes.def)
       .force("charge", d3.forceManyBody().strength(-500))
+      // .force("collide", d3.forceCollide().strength(0.3).radius(50))
       .force("center", d3.forceCenter(cfg.width/2, cfg.height/2))
-      .force("link", d3.forceLink(this.links.def).strength(0.1))
+      // .force("link", d3.forceLink(this.links.def).strength(0.1))
+      .force("link", d3.forceLink(this.links.def).distance(d => d.distance * 10).strength(0.65))
       .on('tick', d => this._forceTick() )
       ;
 
@@ -408,6 +411,7 @@ export class forceMap {
         target: value.pointB.id,
         shipSize: value.shipSize,
         world_id: value.id,
+        distance: value.distance,
          })
     }
 
