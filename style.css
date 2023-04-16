@@ -31,8 +31,23 @@ body {
   display: none;
 }
 
-.inspector > .ins_header {
+.inspector > #ins_head {
   padding: 5px;
+}
+
+.inspector > #ins_rows {
+  display: grid;
+  grid-template-columns: 70px auto;
+  column-gap: 5px;
+  row-gap: 1px;
+}
+
+#ins_rows > .ins_row_label {
+  grid-column: 1;
+}
+
+#ins_rows > .ins_row_value {
+  grid-column: 2;
 }
 
 .page {

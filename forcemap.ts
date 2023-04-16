@@ -2,6 +2,7 @@
 import * as nwo from './scripts/nwo_v0.0.03';
 import * as d3 from 'd3';
 import { tooltip } from './tooltip';
+import { inspector } from './scripts/inspector';
 
 // Interface definitions
   interface configSet {
@@ -19,6 +20,7 @@ import { tooltip } from './tooltip';
     source: number,
     target: number,
     shipSize: number,
+    world_id: number,
   };
   interface linkSet {
     def: linkDef[],
@@ -255,6 +257,7 @@ export class forceMap {
           .attr('y1', d => d.source.y)
           .attr('x2', d => d.target.x)
           .attr('y2', d => d.target.y)
+          .html(d => { return d.world_id }) // put the NWO id inside the HTML... doesn't appear to show in the browser
           ,
         update => update
           // no ability to update links at this point
@@ -284,6 +287,7 @@ export class forceMap {
             )
           .attr('fill', d => { return this.hColor(d.socket.invRatio / 2)})
           .attr("stroke", "black")
+          .html(d => { return d.world_id }) // put the NWO id inside the HTML... doesn't appear to show in the browser
           .call(this._drag(this.simulation))
           .call(this.ttips.hub.assign, this.ttips.hub)
           ,
@@ -403,6 +407,7 @@ export class forceMap {
         source: value.pointA.id,
         target: value.pointB.id,
         shipSize: value.shipSize,
+        world_id: value.id,
          })
     }
 
@@ -491,7 +496,7 @@ export class forceMap {
   }
 
   private _hubTipContents(d: d3.datum): string[] {
-    let pg = this.parent_graph;  // when called, the context is this = a tooltip class object
+    let pg = this.parent_graph;  // IGNORE SQUIGGLE. when called, the context is this = a tooltip class object
 
     let hub: nwo.Hub  = pg.world.getHubByID(d.world_id);
     let item: nwo.Item = pg.world.getItemByName(pg.itemName);

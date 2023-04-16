@@ -224,6 +224,10 @@ export class World extends Base {
       return x;
     }
 
+    getEdgeByID(which: number): Edge {
+      return this.edges.get(which);
+    }
+
     getHubByID(which: number): Hub {
       return this.hubs.get(which);
     }
