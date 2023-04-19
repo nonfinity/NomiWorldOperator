@@ -11,11 +11,11 @@ export class inspector {
     private _typeCallbacks: { [key: string] : (self: inspector) => void } = {
       'Hub'         : this.loader_hub,
       'Edge'        : this.loader_edge,
+      'ItemSocket'  : this.loader_socket,
+      'Item'        : this.loader_item,
+      'World'       : this.loader_world,
+      'Shipment'    : this.loader_shipment,
 
-      'World'       : this.loader_tbd,
-      'Item'        : this.loader_tbd,
-      'ItemSocket'  : this.loader_tbd,
-      'Shipment'    : this.loader_tbd,
       'forceMap'    : this.loader_tbd,
       'lineChart'   : this.loader_tbd,
     }
@@ -23,6 +23,11 @@ export class inspector {
     private _rowCallbacks: { [key: string] : (self: inspector, title: string, thing) => void } = {
       'String'  : this.row_string,
       'Number'  : this.row_number,
+      'Map'     : this.row_map,
+
+      'Hub'     : this.row_linkObj,
+      'World'   : this.row_linkObj,
+      'Item'    : this.row_linkObj,
     }
 
     private readonly DOM: { [key : string] : HTMLDivElement } = {
@@ -104,6 +109,29 @@ export class inspector {
   //
 
   // loader callback functions
+    private loader_lister(self: inspector) {
+      let rowType: string;
+      Object.entries(self.target).forEach(([key, value]) => {
+        let keyAdj: string = key;
+        let valAdj: any = value;
+
+        if(value === undefined) {
+          valAdj = 'Undefined';
+        }
+
+        if (keyAdj.charAt(0) == '_') {
+          keyAdj = keyAdj.substring(1)
+        }
+
+        rowType = valAdj.constructor.name
+
+        console.log(`element ${key} (${keyAdj}) has type ${rowType}`)
+        if ( Object.keys(self._rowCallbacks).includes(rowType) ) {
+          self._rowCallbacks[rowType](self, keyAdj, valAdj);
+        }
+      })
+    }
+
     private loader_hub(self: inspector) {
       self.update_head(
         self.target.id.toString(),
@@ -111,16 +139,7 @@ export class inspector {
         'Hub'
       )
 
-      let rowType: string;
-      Object.entries(self.target).forEach(([key, value]) => {
-        rowType = value.constructor.name
-
-        if ( Object.keys(self._rowCallbacks).includes(rowType) ) {
-          self._rowCallbacks[rowType](self, key, value);
-        }
-      })
-
-      // show socket info too
+      self.loader_lister(self);
     }
 
     private loader_edge(self: inspector) {
@@ -130,67 +149,125 @@ export class inspector {
         'Edge'
       )
 
-      let rowType: string;
-      Object.entries(self.target).forEach(([key, value]) => {
-        rowType = value.constructor.name
+      self.loader_lister(self);
+    }
 
-        let keyAdj: string = key
-        if (keyAdj.charAt(0) == '_') {
-          keyAdj = keyAdj.substring(1)
-        }
+    private loader_socket(self: inspector) {
+      self.update_head(
+        self.target.id.toString(),
+        self.target.name,
+        'ItemSocket'
+      )
 
-        console.log(`element ${key} (${keyAdj}) has type ${rowType}`)
-        if ( Object.keys(self._rowCallbacks).includes(rowType) ) {
-          self._rowCallbacks[rowType](self, keyAdj, value);
-        }
-      })
+      self.loader_lister(self);
+    }
+
+    private loader_item(self: inspector) {
+      self.update_head(
+        self.target.id.toString(),
+        self.target.name,
+        'Item'
+      )
+
+      self.loader_lister(self);
+    }
+
+    private loader_world(self: inspector) {
+      self.update_head(
+        self.target.id.toString(),
+        self.target.name,
+        'World'
+      )
+
+      self.loader_lister(self);
+    }
+
+    private loader_shipment(self: inspector) {
+      self.update_head(
+        self.target.id.toString(),
+        self.target.name,
+        'Shipment'
+      )
+
+      self.loader_lister(self);
     }
 
     private loader_tbd(self: inspector) {}
   //
 
   // row type callback functions
-  prep_row(): [HTMLDivElement, HTMLDivElement] {
-    let label: HTMLDivElement = document.createElement(`div`);
-    let value: HTMLDivElement = document.createElement(`div`);
+    prep_row(parent: HTMLDivElement, title: string): HTMLDivElement {
+      let label: HTMLDivElement = document.createElement(`div`);
+      let value: HTMLDivElement = document.createElement(`div`);
 
-    label.setAttribute(`class`, `ins_row_label`)
-    value.setAttribute(`class`, `ins_row_value`)
+      label.setAttribute(`class`, `ins_row_label`)
+      label.innerText = title;
 
-    return [label, value]
-  }
+      value.setAttribute(`class`, `ins_row_value`)
 
-  row_string(self: inspector, title: string, thing: string) {
-    // console.log(`** row_string() **`)
-    let [label, value] = self.prep_row();
+      parent.appendChild(label);
+      parent.appendChild(value);
 
-    label.innerText = title;
+      return value
+    }
 
-    let box: HTMLInputElement = document.createElement(`input`);
-        box.setAttribute(`type`, `text`);
-        box.setAttribute(`value`, thing)
-        box.setAttribute(`readonly`, ``)
-    value.appendChild(box);
+    row_string(self: inspector, title: string, thing: string) {
+      // console.log(`** row_string() **`)
+      let value = self.prep_row(self.DOM.rows, title);
 
-    self.DOM.rows.appendChild(label);
-    self.DOM.rows.appendChild(value);
-  }
+      let box: HTMLInputElement = document.createElement(`input`);
+          box.setAttribute(`type`, `text`);
+          box.setAttribute(`value`, thing)
+          box.setAttribute(`readonly`, ``)
+      value.appendChild(box);
+    }
 
-  row_number(self: inspector, title: string, thing: number) {
-    // console.log(`** row_number() **`)
-    let [label, value] = self.prep_row();
+    row_number(self: inspector, title: string, thing: number) {
+      // console.log(`** row_number() **`)
+      let value = self.prep_row(self.DOM.rows, title);
 
-    label.innerText = title;
+      let box: HTMLInputElement = document.createElement(`input`);
+          box.setAttribute(`type`, `text`);
+          box.setAttribute(`value`, thing.toString())
+          box.setAttribute(`readonly`, ``)
+      value.appendChild(box);
+    }
 
-    let box: HTMLInputElement = document.createElement(`input`);
-        box.setAttribute(`type`, `text`);
-        box.setAttribute(`value`, thing.toString())
-        box.setAttribute(`readonly`, ``)
-    value.appendChild(box);
+    row_linkObj(self: inspector, title: string, thing: nwo.Hub) {
+      // console.log(`** row_obj() **`)
+      let value = self.prep_row(self.DOM.rows, title);
 
-    self.DOM.rows.appendChild(label);
-    self.DOM.rows.appendChild(value);
-  }
+      let link: HTMLAnchorElement = document.createElement(`a`);
+          link.setAttribute(`href`, `#`)
+          link.innerHTML = thing.name
+          link.addEventListener(`click`, e => self.load(thing) )
+
+      value.appendChild(link);
+    }
+
+    row_map(self: inspector, title: string, thing: Map<any, any>) {
+      let subhead: HTMLDivElement = document.createElement(`div`);
+      let label: HTMLDivElement = document.createElement(`div`);
+
+      subhead.setAttribute(`class`, `ins_row_subhead`)
+      self.DOM.rows.appendChild(subhead);
+
+      label.innerText = title;
+      subhead.appendChild(label);
+
+      for(let [key, value] of thing) {
+        let r: HTMLDivElement = document.createElement(`div`);
+            r.setAttribute(`class`,`test123`)
+        
+        let link: HTMLAnchorElement = document.createElement(`a`);
+          link.setAttribute(`href`, `#`)
+          link.innerHTML = value.name
+          link.addEventListener(`click`, e => self.load(value) )
+
+        r.appendChild(link);
+        subhead.appendChild(r);
+      }
+    }
   //
 
   // class getter/setters
